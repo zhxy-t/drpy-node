@@ -1,3 +1,13 @@
+/*
+@header({
+  searchable: 1,
+  filterable: 1,
+  quickSearch: 0,
+  title: 'Appget[模板]',
+  lang: 'ds'
+})
+*/
+
 // 自动生成于 7/31/2025, 2:58:19 PM
 // 原始文件: AppGet[模板].js
 
@@ -13,7 +23,6 @@ async function detectApiType(host) {
     ];
     for (let api of testApis) {
         let testUrl = host + api;
-
         try {
             let res = await request(testUrl, {
                 timeout: 3000
@@ -32,6 +41,7 @@ async function detectApiType(host) {
             continue;
         }
     }
+    log(`✅data的结果: ${data}`);
     return null;
 }
 
@@ -159,13 +169,12 @@ var rule = {
         let _host = parts[0];
         rule._key = parts[1];
         rule._iv = (parts[2] ? parts[2].split('@')[0] : rule._key) || rule._key;
-
         let params = rule.params || {};
         let json = App_Data.AppGet || {};
         let paramKey = decodeURIComponent((params || '').split('$')[1]);
         rule.params = json[paramKey];
         let config = rule.params || {};
-        rule.key = config.key || config.dataKey || rule._key;
+        rule.key = config.key || config.dataKey || config.datakey || rule._key;
         rule.iv = rule.key || config.iv || config.dataIv || rule._iv;
         rule.username = config.username || '';
         rule.password = config.password || '';
@@ -193,11 +202,10 @@ var rule = {
 
     预处理: async function() {
         rule.apiType = await detectApiType(rule.host);
-
         if (!rule.apiType) {
             rule.apiType = rule.muban === 'Appget' ? 'getappapi' : 'qijiappapi';
         } else {
-            log(`rule.apiType的结果: ${rule.apiType}`);
+            log(`✅rule.apiType的结果: ${rule.apiType}`);
         }
         let apiPaths = [
             'url',
