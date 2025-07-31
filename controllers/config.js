@@ -924,7 +924,7 @@ async function generateParseJSON(jxDir, requestHost) {
 
 function generatePlayerJSON(configDir, requestHost) {
     let playerConfig = {};
-    let playerConfigPath = path.join(configDir, './pz/player.json');
+    let playerConfigPath = path.join(configDir, '../pz/player.json');
     if (existsSync(playerConfigPath)) {
         try {
             playerConfig = JSON.parse(readFileSync(playerConfigPath, 'utf-8'))
