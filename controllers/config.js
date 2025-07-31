@@ -56,14 +56,16 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
 
     //以下为自定义APP模板部分
     try {
-        const templateConfigPath = path.join(jsonDir, '../pz/App模板配置.json');
+      //  const templateConfigPath = path.join(jsonDir, '../pz/App模板配置.json');
+        const templateConfigPath = path.join(configDir, '../pz/App模板配置.json');
         if (existsSync(templateConfigPath)) {
             const templateContent = readFileSync(templateConfigPath, 'utf-8');
             const templateConfig = JSON.parse(templateContent);
             sites = Object.entries(templateConfig).filter(([key]) => valid_files.includes(`${key}[模板].js`))
                 .flatMap(([key, config]) =>
                     Object.entries(config)
-                        .filter(([name]) => name !== "示例")
+                       // .filter(([name]) => name !== "示例")
+                        .filter(([name]) => {  return !/^(说明|示例)$/.test(name)})
                         .map(([name]) => ({
                             key: `drpyS_${name}_${key}`,
                             name: `${name}[M](${key.replace('App', '').toUpperCase()})`,
@@ -72,7 +74,8 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
                             searchable: 1,
                             filterable: 1,
                             quickSearch: 0,
-                            ext: `../json/App模板配置.json$${name}`
+                           // ext: `../json/App模板配置.json$${name}`
+                            ext: jsEncoder.gzip(`道长天下第一$${name}`) // 压缩ext
                         })));
         }
     } catch (e) {
@@ -407,7 +410,340 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
         } catch (e) {
         }
     }
+let customSites = [];
+    let customFilePath = path.join(configDir, '../pz/custom.json');
+    try {
+    const customFileContent = readFileSync(customFilePath, 'utf-8');
+      customSites = JSON.parse(customFileContent);
+    } catch (e) {
+    console.log('custom.json 文件不存在或读取失败，使用空数组作为默认值。');
+  customSites = [];
+    }
+    
+ 
 
+sites = sites.concat(customSites);
+//console.log('sites的结果:', sites);
+//修改名称    
+sites.forEach(site => {
+  // 初始化 newName
+  let newName = site.name;
+ // log(`newName的结果: ${newName}`);
+  // 修改名称
+  newName = newName
+  .replace(/(\(?)(py)(\)?)$/, '[$2]')
+  .replace(/py/g, '派储')
+  .replace(/APP模板/g, 'APP')
+  .replace(/优汐|哥哥|影院|弹幕/g, '')
+  .replace(/(小米|闪电)\[盘\]/g, '$1[优汐]')
+  .replace(/(云盘资源网)\[盘\]/g, '$1[阿里]')
+  .replace(/(校长)\[盘\]/g, '$1[夸克]')
+  .replace(/夸克盘搜\[盘\]/g, '盘搜[夸克]')
+  .replace(/(雷鲸小站|资源汇)\[盘\]/g, '$1[天翼]')
+  .replace(/(盘它)\[盘\]/g, '$1[移动]')
+  .replace(/(AList)\[盘\]/g, '$1[存储]')
+  .replace(/(直播)\[官\]/g, '$1[直播]')
+  .replace(/(夸克分享)\[盘\]/g, '$1[分享]')
+  .replace(/设置中心/g, '设置[中心]')
+  .replace(/动作交互/g, '动作[交互]')
+  .replace(/推送/g, '手机[推送]')
+  .replace(/动漫巴士/g, '巴士')
+  .replace(/短剧库/g, '剧库')
+  .replace(/KTV歌厅/g, 'KTV')
+  .replace(/点歌欢唱\[B\]/g, '点歌欢唱[听]')
+  .replace(/\[G\]|\[M\]|\[S\]/g, '[APP]')
+ // .replace(/云盘资源网/g, '阿里资源网')
+  
+  //.replace(/金牌/g, '金牌[优]')
+  .replace(/荐片/g, '荐片[优]')
+  .replace(/皮皮虾/g, '皮皮')
+  .replace(/奇珍异兽/g, '奇异')
+  .replace(/腾云驾雾/g, '腾讯')
+  .replace(/百忙无果/g, '芒果')  
+  .replace(/特下饭/g, '下饭')
+  .replace(/ikanbot/g, '爱看[虫]')
+  .replace(/hdmoli|HDmoli/g, '莫离')
+  .replace(/素白白/g, '素白[优]')
+  .replace(/瓜子H5/g, '瓜子[优]')
+  .replace(/(短剧.*?|.*?短剧)\(DS\)$/gs, '$1[短](DS)')
+  .replace(/\b动漫/g, '动漫[漫]')
+  .replace(/盘搜\[盘\]/g, '盘搜[搜]')
+  .replace(/短剧\[盘\]/g, '短剧[短]')
+  .replace(/随身听/, '随身')
+  .replace(/DR2/, 'DR')
+  .replace(/(\[[^]]*\])\[.*?\]/, '$1');
+
+
+if (newName.includes('[听]')) {
+    if (newName.match(/播|本|相|博|蜻/)) {
+        newName = newName.replace(/以后/g,'').replace(/(\[听\])/g, '[知]');
+    } else if (newName.match(/六|酷我|吧|老白|书/)) {
+        newName = newName.replace(/以后/g,'').replace(/(\[听\])/g, '[听书]');
+    } else if (newName.match(/U/)) {
+        newName = newName.replace(/(\[听\])/g, '[私密听]');
+    } else {
+        newName = newName.replace(/以后/g,'').replace(/(\[听\])/g, '[音乐]');
+    }
+    }
+    if (newName.match(/哔哩/)) {
+        newName = newName
+          .replace(/哔哩大全\[官\]/g, '大全[哔哩]')
+          .replace(/哔哩教育\[官\]/g, '教育[哔哩]');
+    }
+        newName = newName
+          .replace(/push/g, '手机[推送]');
+    
+    site.name = newName;
+  const specialRegex = /\[.*?\]/;
+  let specialStart;
+  let specialEnd;
+  let baseName;
+  let tsName;
+  let emojiRegex;
+
+// 查找并添加图标
+  let addedEmoji = '';
+  let emojiMap = {
+    "[阿里]": "🟢",
+   // "[优汐]": "🐿️",
+    "[天翼]": "🟠",
+    "[移动]": "🟡",
+    "[优汐]": "🔴",
+    "[存储]": "🗂️",
+    "[分享]": "🗂️",
+    "[夸克]": "🟣",
+    "[盘]": "🔵",
+    "[APP]": "🔶",
+    "[优]": "❤️",
+    "金牌": "❤️",
+    "苹果": "❤️",
+    "[儿]": "👶",
+    "[球]": "⚽",
+
+    "[合]": "🎁",
+    "[短]": "📱",
+    "剧多": "📱",
+    "[直]": "📡",
+    "[戏]": "🎭",
+    "[知]": "📻",
+  //  "相声": "📻",
+    "[磁]": "🧲",
+    "[慢]": "🐢",
+    "[画]": "🖼️",
+    "密": "🚫",
+    "直播": "🚀",
+    "哔哩": "🅱️",
+    "[搜]": "🔎",
+    "[播]": "🖥️",
+    "[V2]": "🔱",
+    "[资]": "♻️",
+    "[自动]": "🤖",
+    "[虫]": "🐞",
+    "[书]": "📚",
+    "[官]": "🏠",
+    "[漫]": "💮",
+    "[音乐]": "🎻",
+    "[听书]": "🎧️",
+    "[飞]": "✈️",
+    "[央]": "🌎",
+    "[弹幕]": "😎",
+    "置": "⚙️",
+    "[功]": "⚙️",
+    "交互": "⚙️",
+    "推": "🛴",
+    "": "📺"
+  };
+  // 查找特殊部分的起始和结束位置
+  specialStart = newName.search(specialRegex);
+  specialEnd = newName.search(/\]/) + 1;
+
+
+   baseName = specialStart!== -1? newName.substring(0, specialStart) : newName;
+//baseName = baseName.substring(0, 2);
+
+if (/^[a-zA-Z0-9].*/.test(baseName) && baseName.length >= 1) {
+        baseName = baseName.substring(0, 4);
+    } else {
+        baseName = baseName.substring(0, 2);
+    }
+
+ //  tsName = specialStart!== -1? newName.substring(specialStart, specialEnd) : ''; // 在这里正确定义并赋值 tsName
+   tsName = newName.substring(specialStart, specialEnd)
+   .replace(/\[短\]/g, '[短剧]')
+.replace(/\[密\]/g, '[私密]')
+.replace(/\[知\]/g, '[知识]')
+ .replace(/\[资\]/g, '[资源]')
+ .replace(/\[飞\]/g, '[飞机]')
+ .replace(/\[官\]/g, '[官源]')
+ .replace(/\[直\]/g, '[直播]')
+ .replace(/\[磁\]/g, '[磁力]')
+ .replace(/\[盘\]/g, '[云盘]')
+ .replace(/\[优\]/g, '[优质]')
+// .replace(/\[V2\]/g, '[APP]')
+.replace(/\[戏\]/g, '[戏曲]')
+ .replace(/\[漫\]/g, '[动漫]')
+ .replace(/\[画\]/g, '[漫画]')
+ .replace(/\[搜\]/g, '[搜索]')
+ .replace(/\[合\]/g, '[合集]')
+ .replace(/\[球\]/g, '[体育]')
+ .replace(/\[央\]/g, '[央视]')
+ .replace(/\[慢\]/g, '[慢慢]')
+ .replace(/\[播\]/g, '[电视]')
+ .replace(/\[书\]/g, '[小说]')
+ .replace(/\[儿\]/g, '[儿童]')
+ .replace(/\[虫\]/g, '[爬虫]')
+ .replace(/\[功\]/g, '[功能]')
+.replace(/\((.*?)\)/g, '[$1]')  // 将 (任意字符) 改成 [任意字符]
+//.replace(/\[|\]/g, '')
+//.replace(/\([.*?]\)/g, '')
+ ;
+ 
+let match = newName.match(/\(.*?\)/);
+let result = '';
+if (match) {
+    result = match[0];
+   // console.log(result); 
+} else {
+   // console.log('未找到匹配的内容');
+}
+
+
+//  console.log(`✅处理站点: ${site.name}`);
+    //console.log(`✅匹配关键字: 当前名称=${site.name}, 匹配过程...`);
+for (let key in emojiMap) {
+    if (site.name.includes(key)) {
+      //  console.log(`✅匹配到关键字: ${key}, 使用图标: ${emojiMap[key]}`);
+        addedEmoji = emojiMap[key];
+        break;
+    }
+}
+    //console.log(`重组前: baseName=${baseName}, tsName=${tsName}, addedEmoji=${addedEmoji}`);
+
+  if (addedEmoji) {
+   // site.name = addedEmoji + baseName +'┃'+ tsName + result; // 更新 site.name
+    site.name = addedEmoji + baseName +'┃'+ tsName; // 更新 site.name
+  //  site.name = addedEmoji + baseName ; // 更新 site.name
+  } 
+});
+
+
+// 应用自定义排序
+    // 定义排序顺序
+    /*
+    let order = ['[APP]'  ,'[优汐]', '[夸克]' ,'[云盘]',  '[天翼]',  '[移动]' ,'[阿里]','🗂️' ,'[优质]',  
+    '⚙️', '[合集]', '[官源]', '[直播]', '[知识]', '[听书]', '[音乐]',   
+    '[动漫]', '[短剧]', '🅱️',  '[爬虫]', '🔎' ,'👶'  ,'⚽'  , '🎭'  , '📚'];
+    */
+function customSort(a, b) {
+    // 定义排序顺序
+    const order = ['🔶', '🔴', '🔵', '🟣', '🟠', '🟡', '🟢', '🗂️', 
+                  '❤️', '⚙️', '🎁', '🏠', '🚀', '📻', '🎧️', '🎻', 
+                  '💮', '📱', '🅱️', '🐞', '🔎', '👶', '⚽', '🎭', '🔱', '📚'];
+    
+    // 定义优先排序的关键字（模糊匹配）
+    const js_order = ['瓜子', '光映', '鲸鱼','gg','u映'];
+    
+    // 获取站点名称
+    const aName = a.name;
+    const bName = b.name;
+    
+    // 1. 优先按 js_order 关键字模糊匹配排序
+    let aOrderIndex = -1;
+    let bOrderIndex = -1;
+    
+    // 查找 aName 在 js_order 中的匹配位置
+    for (let i = 0; i < js_order.length; i++) {
+        if (aName.includes(js_order[i])) {
+            aOrderIndex = i;
+            break; // 找到第一个匹配项即停止
+        }
+    }
+    
+    // 查找 bName 在 js_order 中的匹配位置
+    for (let i = 0; i < js_order.length; i++) {
+        if (bName.includes(js_order[i])) {
+            bOrderIndex = i;
+            break; // 找到第一个匹配项即停止
+        }
+    }
+    
+    // 处理优先排序逻辑
+    if (aOrderIndex !== -1 || bOrderIndex !== -1) {
+        if (aOrderIndex !== -1 && bOrderIndex !== -1) {
+            // 两者都匹配，按关键字顺序排序
+            return aOrderIndex - bOrderIndex;
+        }
+        // 只有一方匹配，匹配的排在前面
+        return aOrderIndex !== -1 ? -1 : 1;
+    }
+    
+    // 2. 按图标顺序排序
+    function getIconIndex(name) {
+        for (let i = 0; i < order.length; i++) {
+            if (name.includes(order[i])) {
+                return i;
+            }
+        }
+        return order.length; // 未找到返回最大值
+    }
+    
+    const aIconIndex = getIconIndex(aName);
+    const bIconIndex = getIconIndex(bName);
+    
+    if (aIconIndex !== bIconIndex) {
+        // 图标索引不同，按索引顺序排序
+        return aIconIndex - bIconIndex;
+    }
+    
+    // 3. 处理推送类站点（放最后）
+    const hasPushA = aName.includes('推送');
+    const hasPushB = bName.includes('推送');
+    
+    if (hasPushA && !hasPushB) {
+        return 1; // a 有推送，b 没有，a 排后面
+    } else if (!hasPushA && hasPushB) {
+        return -1; // b 有推送，a 没有，b 排后面
+    }
+    
+    // 4. 按名称长度和字典顺序排序
+    if (aName.length !== bName.length) {
+        return aName.length - bName.length;
+    }
+    
+    return aName.localeCompare(bName);
+}
+
+
+    function shouldExclude(s) {
+    const kws = [
+        'Appg', 'AppS', 'Appm','Appr',
+       '📺','密',
+    ];
+    return kws.some(kw => s.name.toLowerCase().includes(kw.toLowerCase()));
+}
+sites = sites.filter(site => !shouldExclude(site));
+
+let noticeSites = [];
+    let notice_abspath = path.join(configDir, '../pz/notice.json');
+    try {
+    const noticeFile = readFileSync(notice_abspath, 'utf-8');
+      noticeSites = JSON.parse(noticeFile);
+    } catch (e) {}
+    let now = new Date();
+    let year = String(now.getFullYear()).slice(-2); // 年份只保留两位
+    let month = String(now.getMonth() + 1).padStart(2, '0'); // 月份从0开始，用padStart补零
+    let day = String(now.getDate()).padStart(2, '0');
+    let hour = String(now.getHours()).padStart(2, '0');
+    let minute = String(now.getMinutes()).padStart(2, '0');
+    let second = String(now.getSeconds()).padStart(2, '0');
+    let formattedTime = `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+    noticeSites = noticeSites.map(site => {
+        site.isNotice = true; // 添加标记
+        if (site.key === "提示") {
+            site.name = `(🎉${formattedTime})(${site.name})`;
+        }
+        return site;
+    });
     // 订阅再次处理别名的情况
     if (sub) {
         if (sub.mode === 0) {
@@ -420,7 +756,9 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
     if (ENV.get('hide_adult') === '1') {
         sites = sites.filter(it => !(new RegExp('\\[[密]\\]|密+')).test(it.name));
     }
-    sites = naturalSort(sites, 'name', sort_list);
+sites = naturalSort(sites, 'name', sort_list);
+sites.sort(customSort);
+sites = sites.concat(noticeSites);  // 正确赋值
     return {sites, spider: link_jar};
 }
 
@@ -502,31 +840,59 @@ async function generateParseJSON(jxDir, requestHost) {
     return {parses};
 }
 
-function generateLivesJSON(requestHost) {
-    let lives = [];
-    let live_url = process.env.LIVE_URL || '';
-    let epg_url = process.env.EPG_URL || ''; // 从.env文件读取
-    let logo_url = process.env.LOGO_URL || ''; // 从.env文件读取
-    if (live_url && !live_url.startsWith('http')) {
-        let public_url = urljoin(requestHost, 'public/');
-        live_url = urljoin(public_url, live_url);
+function generateLivesJSON(configDir, requestHost) {
+    let noticeSites = [];
+    let filePath = path.join(configDir, '../pz/live.json');
+    let liveConfig; // 补充变量声明（原代码漏了）
+
+    try {
+        liveConfig = JSON.parse(readFileSync(filePath, 'utf-8'));
+    } catch (e) {
+        console.warn('直播文件不存在，返回空列表', filePath);
+        return { lives: [] }; // 修正：添加大括号包裹对象
     }
-    // console.log('live_url:', live_url);
-    if (live_url) {
-        lives.push(
-            {
-                "name": "直播",
-                "type": 0,
-                "url": live_url,
-                "playerType": 1,
-                "ua": "okhttp/3.12.13",
-                "epg": epg_url,
-                "logo": logo_url
+
+    // 处理直播配置
+    try {
+        const fileContent = readFileSync(filePath, 'utf8');
+        const config = JSON.parse(fileContent);
+
+        const live_urls = config.live_urls || [];
+        const epg_url = config.epg_url || '';
+        const logo_url = config.logo_url || '';
+        const names = config.names || [];
+
+        // 处理URL拼接
+        function processUrl(url) {
+            if (url && !url.startsWith('http')) {
+                const publicUrl = `${requestHost}/public/`;
+                return publicUrl + url.replace(/^\//, ''); // 移除url开头的斜杠，避免重复
             }
-        )
+            return url;
+        }
+
+        // 生成直播对象
+        const lives = live_urls.map((url, index) => {
+            const processedUrl = processUrl(url);
+            return processedUrl ? {
+                name: names[index] || '',
+                type: 0,
+                url: processedUrl,
+                playerType: 1,
+                ua: "okhttp/3.12.13",
+                epg: epg_url,
+                logo: logo_url
+            } : null;
+        }).filter(Boolean);
+
+        return { lives };
+
+    } catch (error) {
+        console.error('处理直播信息错误:', error.message);
+        return { lives: [] };
     }
-    return {lives}
 }
+
 
 function generatePlayerJSON(configDir, requestHost) {
     let playerConfig = {};
