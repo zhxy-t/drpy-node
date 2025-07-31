@@ -725,7 +725,7 @@ function customSort(a, b) {
     function shouldExclude(s) {
     const kws = [
         'Appg', 'AppS', 'Appm','Appr',
-   //     '📺',
+       '📺','密',
     ];
     return kws.some(kw => s.name.toLowerCase().includes(kw.toLowerCase()));
 }
