@@ -41,7 +41,6 @@ async function detectApiType(host) {
             continue;
         }
     }
-    log(`✅data的结果: ${data}`);
     return null;
 }
 
