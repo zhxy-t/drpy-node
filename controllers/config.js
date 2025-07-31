@@ -12,6 +12,7 @@ import {validateBasicAuth, validatePwd} from "../utils/api_validate.js";
 import {getSitesMap} from "../utils/sites-map.js";
 import {getParsesDict} from "../utils/file.js";
 import batchExecute from '../libs_drpy/batchExecute.js';
+import { fileURLToPath } from 'url';
 
 const {jsEncoder} = drpy;
 
@@ -22,6 +23,7 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
     const pyDir = options.pyDir;
     const configDir = options.configDir;
     const jsonDir = options.jsonDir;
+    const jsonPz = options.jsonPz;
     const subFilePath = options.subFilePath;
     const rootDir = options.rootDir;
 
@@ -56,16 +58,18 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
 
     //以下为自定义APP模板部分
     try {
-      //  const templateConfigPath = path.join(jsonDir, '../pz/App模板配置.json');
-        const templateConfigPath = path.join(configDir, '../pz/App模板配置.json');
+      // const templateConfigPath = path.join(jsonDir, './App模板配置.json');
+       const templateConfigPath = path.join(jsonPz, './App模板配置.json');
+      // log(`✅templateConfigPath的结果: ${templateConfigPath}`);
         if (existsSync(templateConfigPath)) {
             const templateContent = readFileSync(templateConfigPath, 'utf-8');
             const templateConfig = JSON.parse(templateContent);
+         //  log(`✅templateConfig的结果: ${JSON.stringify(templateConfig, null, 4)}`);
             sites = Object.entries(templateConfig).filter(([key]) => valid_files.includes(`${key}[模板].js`))
                 .flatMap(([key, config]) =>
                     Object.entries(config)
-                       // .filter(([name]) => name !== "示例")
-                        .filter(([name]) => {  return !/^(说明|示例)$/.test(name)})
+                  // .filter(([name]) => name !== "示例")
+                     .filter(([name]) => {  return !/^(说明|示例)$/.test(name)})
                         .map(([name]) => ({
                             key: `drpyS_${name}_${key}`,
                             name: `${name}[M](${key.replace('App', '').toUpperCase()})`,
@@ -74,8 +78,8 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
                             searchable: 1,
                             filterable: 1,
                             quickSearch: 0,
-                           // ext: `../json/App模板配置.json$${name}`
-                            ext: jsEncoder.gzip(`道长天下第一$${name}`) // 压缩ext
+                          //  ext: `../json/App模板配置.json$${name}`
+                            ext: jsEncoder.gzip(`📱道长天下第一$${name}`) // 压缩ext
                         })));
         }
     } catch (e) {
@@ -202,7 +206,7 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
                 func: async ({file, dr2Dir, requestHost, pwd, drpy, SitesMap}) => {
                     const baseName = path.basename(file, '.js'); // 去掉文件扩展名
                     // dr2ApiType=0 使用接口drpy2 dr2ApiType=1 使用壳子内置的drpy2
-                    let api = dr2ApiType ? `assets://js/lib/drpy2.js` : `${requestHost}/public/drpy/drpy2.min.js`;
+                    let api = dr2ApiType ? `assets://js/lib/drpy2.js` : `${requestHost}/public/drpy2/drpy2.min.js`;
                     let ext = `${requestHost}/js/${file}`;
                     if (pwd) {
                         ext += `?pwd=${pwd}`;
@@ -410,7 +414,8 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
         } catch (e) {
         }
     }
-let customSites = [];
+
+    let customSites = [];
     let customFilePath = path.join(configDir, '../pz/custom.json');
     try {
     const customFileContent = readFileSync(customFilePath, 'utf-8');
@@ -840,16 +845,15 @@ async function generateParseJSON(jxDir, requestHost) {
     return {parses};
 }
 
-function generateLivesJSON(configDir, requestHost) {
+function generateLivesJSON(requestHost) {
     let noticeSites = [];
     let filePath = path.join(configDir, '../pz/live.json');
-    let liveConfig; // 补充变量声明（原代码漏了）
+    
 
-    try {
-        liveConfig = JSON.parse(readFileSync(filePath, 'utf-8'));
-    } catch (e) {
+    // 检查直播文件是否存在
+    if (!fs.existsSync(filePath)) {
         console.warn('直播文件不存在，返回空列表', filePath);
-        return { lives: [] }; // 修正：添加大括号包裹对象
+        return { lives: [] };
     }
 
     // 处理直播配置
@@ -893,10 +897,9 @@ function generateLivesJSON(configDir, requestHost) {
     }
 }
 
-
 function generatePlayerJSON(configDir, requestHost) {
     let playerConfig = {};
-    let playerConfigPath = path.join(configDir, './player.json');
+    let playerConfigPath = path.join(configDir, '../pz/player.json');
     if (existsSync(playerConfigPath)) {
         try {
             playerConfig = JSON.parse(readFileSync(playerConfigPath, 'utf-8'))
