@@ -3,9 +3,6 @@
         "示例": {
             "host": ""
         },
-        "热播": {
-            "url": "http://v.rbotv.cn"
-        },
         "天天": {
             "url": "http://tt.ysdqjs.cn"
         },
@@ -34,11 +31,7 @@
             "site": "http://t.bffree.cn/1.txt",
             "dataKey": "2015692015692015"
         },
-        "小红": {
-            "url": "http://www.xiaohys.com",
-            "dataKey": "ENonBHeVBoYZhVUV",
-            "dataIv": "ENonBHeVBoYZhVUV"
-        },
+        
         "鲸鱼": {
             "muban": "AppQiji",
             "host": "",
