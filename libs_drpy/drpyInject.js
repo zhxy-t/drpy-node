@@ -6,13 +6,15 @@ import https from 'https';
 import fs from 'node:fs';
 import qs from 'qs';
 import _ from './underscore-esm.min.js'
+// import _ from './underscore-esm.js'
+// import _ from 'underscore'
 import tunnel from "tunnel";
 import iconv from 'iconv-lite';
 import {jsonpath, jsoup} from './htmlParser.js';
 import hlsParser from './hls-parser.js'
 import {keysToLowerCase} from '../utils/utils.js'
-import {ENV} from '../utils/env.js';
 
+// import {batchFetch1, batchFetch2, batchFetch3} from './drpyBatchFetch.js';
 import {batchFetch3} from './hikerBatchFetch.js';
 
 globalThis.batchFetch = batchFetch3;
@@ -21,35 +23,43 @@ globalThis.axiosX = axiosX;
 globalThis.hlsParser = hlsParser;
 globalThis.qs = qs;
 
-const AgentOption = {keepAlive: true, maxSockets: 64, timeout: 30000};
+const AgentOption = {keepAlive: true, maxSockets: 64, timeout: 30000}; // 最大连接数64,30秒定期清理空闲连接
 const httpAgent = new http.Agent(AgentOption);
 let httpsAgent = new https.Agent({rejectUnauthorized: false, ...AgentOption});
 
+// 配置 axios 使用代理
 const _axios = axios.create({
-    httpAgent,
-    httpsAgent,
+    httpAgent,  // 用于 HTTP 请求的代理
+    httpsAgent, // 用于 HTTPS 请求的代理
 });
 
+// 请求拦截器
 _axios.interceptors.request.use((config) => {
+    // 生成 curl 命令
     const curlCommand = generateCurlCommand(config);
-    if (ENV.get('show_curl', '0') === '1') {
-        console.log(`Generated cURL command:\n${curlCommand}`);
-    }
+    console.log(`Generated cURL command:\n${curlCommand}`);
     return config;
 }, (error) => {
     return Promise.reject(error);
 });
 
+/**
+ * 生成 curl 命令
+ * @param {Object} config Axios 请求配置
+ * @returns {string} curl 命令
+ */
 function generateCurlCommand(config) {
     const {method, url, headers, data} = config;
     let curlCommand = `curl -X ${method.toUpperCase()} '${url}'`;
 
+    // 添加 headers
     if (headers) {
         for (const [key, value] of Object.entries(headers)) {
             curlCommand += ` -H '${key}: ${value}'`;
         }
     }
 
+    // 添加 body 数据
     if (data) {
         if (typeof data === 'object') {
             curlCommand += ` -d '${JSON.stringify(data)}'`;
@@ -61,7 +71,105 @@ function generateCurlCommand(config) {
     return curlCommand;
 }
 
+
+const confs = {};
+
+/**
+ * 初始化本地存储（仅读取）
+ * @param {string} storage - 存储的名称
+ */
+function initLocalStorage(storage) {
+    // 构建存储路径
+    const storagePath = 'local/' + storage;
+
+    // 如果存储路径存在
+    if (fs.existsSync(storagePath)) {
+        // 读取并解析文件内容
+        confs[storage] = JSON.parse(fs.readFileSync(storagePath).toString());
+    }
+}
+
+/**
+ * 从本地存储中获取值
+ * @param {string} storage - 存储的名称
+ * @param {string} key - 键
+ * @returns {any} - 获取的值，如果不存在则返回空字符串
+ */
+function localGet(storage, key) {
+    // 初始化本地存储
+    initLocalStorage(storage);
+    // 使用 _.get 方法获取指定键的值，如果不存在则返回空字符串
+    return _.get(confs[storage], key, '');
+}
+
+/**
+ * 在本地存储中设置值（如果不存在存储文件则不进行设置）
+ * @param {string} storage - 存储的名称
+ * @param {string} key - 键
+ * @param {any} value - 值
+ */
+function localSet(storage, key, value) {
+    // 初始化本地存储（仅检查是否存在）
+    initLocalStorage(storage);
+    // 如果存在存储文件，则设置键值对
+    if (_.has(confs, storage)) {
+        confs[storage][key] = value;
+        fs.writeFileSync('local/' + storage, JSON.stringify(confs[storage]));
+    }
+}
+
+/**
+ * 从本地存储中删除指定键的值（如果不存在存储文件则不进行删除）
+ * @param {string} storage - 存储的名称
+ * @param {string} key - 键
+ */
+function localDelete(storage, key) {
+    // 初始化本地存储（仅检查是否存在）
+    initLocalStorage(storage);
+    // 如果存在存储文件，则删除指定键的值
+    if (_.has(confs, storage)) {
+        delete confs[storage][key];
+        fs.writeFileSync('local/' + storage, JSON.stringify(confs[storage]));
+    }
+}
+/*
+function initLocalStorage(storage) {
+    if (!_.has(confs, storage)) {
+        if (!fs.existsSync('local')) {
+            fs.mkdirSync('local');
+        }
+
+        const storagePath = 'local/js_' + storage;
+
+        if (!fs.existsSync(storagePath)) {
+            fs.writeFileSync(storagePath, '{}');
+            confs[storage] = {};
+        } else {
+            confs[storage] = JSON.parse(fs.readFileSync(storagePath).toString());
+        }
+    }
+}
+
+function localGet(storage, key) {
+    initLocalStorage(storage);
+    return _.get(confs[storage], key, '');
+}
+
+function localSet(storage, key, value) {
+    initLocalStorage(storage);
+    confs[storage][key] = value;
+    fs.writeFileSync('local/js_' + storage, JSON.stringify(confs[storage]));
+}
+
+function localDelete(storage, key) {
+    initLocalStorage(storage);
+    delete confs[storage][key];
+    fs.writeFileSync('local/js_' + storage, JSON.stringify(confs[storage]));
+}
+*/
 async function request(url, opt = {}) {
+    // console.log('进入了req...');
+    // 解构参数并设置默认值
     const {
         data: _data = null,
         body = '',
@@ -79,33 +187,40 @@ async function request(url, opt = {}) {
     let data = body || _data;
     let encoding = userEncoding;
 
+    // 设置默认 Content-Type
     const headers = keysToLowerCase({
         ...userHeaders,
         ...(postType === 'form' && {'Content-Type': 'application/x-www-form-urlencoded'}),
         ...(postType === 'form-data' && {'Content-Type': 'multipart/form-data'}),
     });
 
+    // 添加accept属性防止获取网页源码编码不正确问题
     if (!Object.keys(headers).includes('accept')) {
         headers['accept'] = '*/*';
     }
 
+    // 尝试从 Content-Type 中提取编码
     if (headers['content-type'] && /charset=(.*)/i.test(headers['content-type'])) {
         encoding = headers['content-type'].match(/charset=(.*)/i)[1];
     }
 
+    // 根据 postType 处理数据
     if (postType === 'form' && data != null) {
         data = qs.stringify(data, {encode: false});
     } else if (postType === 'form-data') {
         data = toFormData(data);
     }
 
+    // 配置代理或 HTTPS Agent
+    // httpsAgent = new https.Agent({rejectUnauthorized: false});
     const agent = proxy ? tunnel.httpsOverHttp({proxy: {host: '127.0.0.1', port: 7890}}) : httpsAgent;
+
+    // 设置响应类型为 arraybuffer，确保能正确处理编码
     const respType = returnBuffer ? 'arraybuffer' : 'arraybuffer';
 
-    if (ENV.get('show_req', '0') === '1') {
-        console.log(`req: ${url} headers: ${JSON.stringify(headers)} data: ${JSON.stringify(data)}`);
-    }
+    console.log(`req: ${url} headers: ${JSON.stringify(headers)} data: ${JSON.stringify(data)}`);
     try {
+        // 发送请求
         const resp = await _axios({
             url: typeof url === 'object' ? url.url : url,
             method,
@@ -118,14 +233,18 @@ async function request(url, opt = {}) {
         });
 
         let responseData = resp.data;
+
+        // 构建响应头
         const resHeader = Object.fromEntries(
             Object.entries(resp.headers).map(([key, value]) => [key, Array.isArray(value) ? (value.length === 1 ? value[0] : value) : value])
         );
 
+        // 解码逻辑
         if (!returnBuffer) {
             const buffer = Buffer.from(responseData);
 
             if (encoding && encoding.toLowerCase() !== 'utf-8') {
+                // console.log('Detected encoding:', encoding);
                 responseData = iconv.decode(buffer, encoding);
             } else {
                 responseData = buffer.toString('utf-8');
@@ -153,9 +272,11 @@ async function request(url, opt = {}) {
         const {response: resp} = error;
         console.error(`Request error: ${error.message}`);
         let responseData = '';
+        // console.log('responseData:',responseData);
         try {
             const buffer = Buffer.from(resp.data);
             if (encoding && encoding.toLowerCase() !== 'utf-8') {
+                // console.log('Detected encoding:', encoding);
                 responseData = iconv.decode(buffer, encoding);
             } else {
                 responseData = buffer.toString('utf-8');
@@ -163,6 +284,7 @@ async function request(url, opt = {}) {
         } catch (e) {
             console.error(`get error response Text failed: ${e.message}`);
         }
+        // console.log('responseData:',responseData);
         return {
             code: resp?.status || 500,
             headers: resp?.headers || {},
@@ -191,6 +313,7 @@ function responseBase64(data) {
     const buffer = Buffer.from(data, 'binary');
     return buffer.toString('base64');
 }
+
 
 function md5(text) {
     return crypto.createHash('md5').update(Buffer.from(text, 'utf8')).digest('hex');
@@ -235,6 +358,7 @@ function aes(mode, encrypt, input, inBase64, key, iv, outBase64) {
 function des(mode, encrypt, input, inBase64, key, iv, outBase64) {
     try {
         if (mode.startsWith('DESede/CBC')) {
+            // https://stackoverflow.com/questions/29831300/convert-desede-ecb-nopadding-algorithm-written-in-java-into-nodejs-using-crypto
             switch (key.length) {
                 case 16:
                     mode = 'des-ede-cbc';
@@ -258,6 +382,7 @@ function des(mode, encrypt, input, inBase64, key, iv, outBase64) {
     return '';
 }
 
+// pkcs8 only
 function rsa(mode, pub, encrypt, input, inBase64, key, outBase64) {
     try {
         let pd = undefined;
@@ -323,7 +448,16 @@ function randStr(len, withNum) {
     return _str;
 }
 
-// 移除本地存储相关代码
+globalThis.local = {
+    get: function (storage, key) {
+        return localGet(storage, key);
+    }, set: function (storage, key, val) {
+        localSet(storage, key, val);
+    }, delete: function (storage, key) {
+        localDelete(storage, key);
+    }
+};
+
 globalThis.md5X = md5;
 globalThis.rsaX = rsa;
 globalThis.aesX = aes;
@@ -332,24 +466,66 @@ globalThis.desX = des;
 globalThis.req = request;
 globalThis.responseBase64 = responseBase64;
 
+
+/**
+ * Constructor for the JSProxyStream class.
+ *
+ * @constructor
+ */
 globalThis.JSProxyStream = function () {
+    /**
+     * Set proxy stream http code & headers
+     *
+     * @param {Number} code - http status code
+     * @param {Map} headers - http response headers
+     */
     this.head = async function (code, headers) {
     };
+    /**
+     * Writes the given buffer.
+     *
+     * @param {ArrayBuffer} buf - the buffer to write
+     * @return {Number} 1 if the write was successful, 0 stream read is paused, -1 strean was closed
+     */
     this.write = async function (buf) {
         return 1;
     };
+    /**
+     * Stream will be closed.
+     */
     this.done = async function () {
     };
+    /**
+     * Stream will be closed cause by error happened.
+     */
     this.error = async function (err) {
     };
 };
 
+
+/**
+ * Creates a new JSFile object with the specified path.
+ *
+ * @param {string} path - The path to the file.
+ * @return {JSFile} - The JSFile object.
+ */
 globalThis.JSFile = function (path) {
     this._path = path;
     this.fd = null;
+    /**
+     * Returns the raw path of the object.
+     *
+     * @return {string}  The raw path of the file. Runtime path is not same with _path.
+     */
     this.path = async function () {
         return this._path;
     };
+    /**
+     * Opens a file with the specified mode.
+     *
+     * @param {string} mode - The mode in which to open the file. Can be 'r' for read, 'w' for write, or 'a' for append.
+     * @return {boolean} Returns true if the file was successfully opened, false otherwise.
+     */
     this.open = async function (mode) {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -366,6 +542,13 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Reads data from a file asynchronously.
+     *
+     * @param {number} length - The number of bytes to read.
+     * @param {number} position - The position in the file to start reading from.
+     * @return {ArrayBuffer} The data read from the file.
+     */
     this.read = async function (length, position) {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -380,6 +563,13 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Writes data from an ArrayBuffer to a file at a given position.
+     *
+     * @param {ArrayBuffer} arraybuffer - The ArrayBuffer containing the data to write.
+     * @param {number} position - The position within the file to start writing.
+     * @return {boolean} Returns true if the write operation was successful.
+     */
     this.write = async function (arraybuffer, position) {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -389,10 +579,18 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Flush buffers to disk.
+     */
     this.flush = async function () {
         return;
     };
 
+    /**
+     * Closes the file descriptor.
+     *
+     * @return {Promise<void>} A promise that resolves once the file descriptor is closed.
+     */
     this.close = async function () {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -402,6 +600,12 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Moves the file to a new path.
+     *
+     * @param {string} newPath - The new path where the file will be moved.
+     * @return {Promise<boolean>} A promise that resolves with `true` if the file was successfully moved, otherwise returns false.
+     */
     this.move = async function (newPath) {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -411,6 +615,12 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Copies the file to a new path.
+     *
+     * @param {string} newPath - The path of the new location where the file will be copied.
+     * @return {Promise<boolean>} A promise that resolves with `true` if the file is successfully copied, and `false` otherwise.
+     */
     this.copy = async function (newPath) {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -420,6 +630,10 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Deletes the file associated with this object.
+     *
+     */
     this.delete = async function () {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -429,6 +643,11 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * Checks if the file exists.
+     *
+     * @return {Promise<boolean>} A promise that resolves to a boolean value indicating whether the file exists or not.
+     */
     this.exist = async function () {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -438,6 +657,9 @@ globalThis.JSFile = function (path) {
         });
     };
 
+    /**
+     * @returns the file length
+     */
     this.size = async function () {
         const file = this;
         return await new Promise((resolve, reject) => {
@@ -504,6 +726,7 @@ globalThis.print = console.log;
 globalThis.jsonpath = jsonpath;
 globalThis.jsoup = jsoup;
 
+// 将 JSON 对象转换为 cookie 字符串
 function jsonToCookie(json) {
     return qs.stringify(json, {
         delimiter: ';',
@@ -511,6 +734,7 @@ function jsonToCookie(json) {
     });
 }
 
+// 将 cookie 字符串转换回 JSON 对象
 function cookieToJson(cookieString) {
     return qs.parse(cookieString, {
         delimiter: ';',
