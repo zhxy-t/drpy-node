@@ -1,5 +1,12 @@
-/**仅供测试**/
-// const WebSocket = require('ws');
+/**仅供测试*
+@header({
+  searchable: 1,
+  filterable: 1,
+  quickSearch: 0,
+  title: '抖音直播',
+  lang: 'ds'
+})
+*/// const WebSocket = require('ws');
 // const WebSocketServer = WebSocket.Server;
 // const zlib = require('zlib');
 const url = require('url');

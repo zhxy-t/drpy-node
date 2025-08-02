@@ -76,7 +76,7 @@ var rule = {
             parse: 0,
            // url: url.replace(/zhxy.eu.org/g, 'ds.playdreamer.cn')
           //  .replace(/127.0.0.1:5757/g, 'ds.playdreamer.cn'),
-            url: rurl
+            url: rurl,
             headers: rule.headers
         }
     },
