@@ -16,12 +16,14 @@ let App_Data = JSON.parse(readFileSync(App_Path, 'utf-8'));
 
 async function detectApiType(host) {
     const testApis = [
-        '/api.php/getappapi.index/initV119',
-        '/api.php/qijiappapi.index/initV119'
+        '/api.php/getappapi.index/searchList',
+        '/api.php/qijiappapi.index/searchList'
     ];
+    let apiType; // 声明apiType，避免全局污染
+
     for (const api of testApis) {
         const testUrl = `${host}${api}`;
-        try {
+        try { // 外部try块添加catch，捕获所有请求相关错误
             console.log(`[API检测] 开始检测: ${testUrl}`);
             const res = await request(testUrl, { timeout: 3000 });
             
@@ -30,11 +32,40 @@ async function detectApiType(host) {
                 continue;
             }
 
-            const jsonRes = JSON.parse(res);
+            let jsonRes;
+            try {
+                jsonRes = JSON.parse(res); // 单独捕获JSON解析错误
+            } catch (parseErr) {
+                console.log(`[API检测] ${testUrl} JSON解析失败: ${parseErr.message}`);
+                continue; // 解析失败，跳过当前接口
+            }
+
             if (!jsonRes.data) {
                 console.log(`[API检测] ${testUrl} 无data字段，跳过`);
                 continue;
             }
+
+            // 处理code逻辑（无需额外try-catch，因jsonRes已确定为对象）
+            const code = jsonRes.code;
+            if (code == 0) {
+                apiType = api.includes('getappapi') ? 'getappapi' : 'qijiappapi';
+                console.log(`[API检测] 成功！${testUrl} 类型: ${apiType}`);
+                return apiType; // 成功则返回
+            } else {
+                console.log(`[API检测] ${testUrl} code不为0，跳过`);
+            }
+
+        } catch (err) { // 捕获请求相关错误（超时、网络异常等）
+            console.log(`[API检测] ${testUrl} 请求失败: ${err.message}`);
+            continue; // 错误不中断，继续检测下一个接口
+        }
+    }
+
+    console.log('[API检测] 所有接口检测失败');
+    return apiType; // 失败时返回undefined（或根据需求返回默认值）
+}
+
+            /*
             const decryptedData = rule.decrypt(jsonRes.data);
             const parsedData = JSON.parse(decryptedData);
             if (parsedData.recommend_list || parsedData.type_list) {
@@ -42,6 +73,7 @@ async function detectApiType(host) {
                 console.log(`[API检测] 成功！${testUrl} 类型: ${apiType}`);
                 return apiType;
             }
+            
         } catch (e) {
             console.log(`[API检测错误] ${testUrl}: ${e.message}`);
             continue;
@@ -49,13 +81,8 @@ async function detectApiType(host) {
     }
     console.log('[API检测] 所有接口检测失败');
     return null;
-}
+}*/
 
-function shouldRemove(lineName, patterns) {
-    if (!patterns || !patterns.length) return false;
-    const lowerLine = lineName.toLowerCase();
-    return patterns.some(pattern => lowerLine.includes(pattern.toLowerCase()));
-}
 
 const rule = {
     类型: '影视',
