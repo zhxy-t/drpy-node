@@ -13,9 +13,14 @@
     "url": "./live_cntv.txt"
   }
  ]
- */
-
-const __ext = {data_dict: {}};
+@header({
+  searchable: 1,
+  filterable: 1,
+  quickSearch: 0,
+  title: '直播转点播[合]',
+  lang: 'ds'
+})
+*/const __ext = {data_dict: {}};
 var rule = {
     title: '直播转点播[合]',
     author: '道长',
@@ -263,8 +268,6 @@ var rule = {
                         if (it.trim()) {
                             let t = it.trim().split(',')[0];
                             let u = it.trim().split(',')[1];
-                            u = decodeURIComponent(u)
-                            console.log('✅u的结果:', u);
                             _list.push(t + '$' + u);
                         }
                     });
@@ -355,49 +358,24 @@ var rule = {
         }
         return VODS;
     },
-    
     lazy: async function (flag, id, flags) {
-    let { input } = this;
-    
-    const liveObj = __ext.data.find(it => it.name === flag.split('|')[0].split('@')[0]);
-    
-    // 统一处理输入为字符串（必要时转换类型）
-    const safeDecode = (str) => {
-        try {
-            return decodeURIComponent(String(str)); // 确保是字符串类型再解码
-        } catch (error) {
-            console.warn('URL解码失败，返回原始值', error, str);
-            return str; // 解码失败时返回原始值
+        let {input} = this;
+        let liveObj = __ext.data.find(it => it.name === flag.split('|')[0].split('@')[0]);
+        // log('liveObj:', liveObj);
+        if (/\.(m3u8|mp4)/.test(input)) {
+            if (input.includes('?')) {
+                input = id;
+            }
+            input = {parse: 0, url: input}
+            if (liveObj && liveObj.headers) {
+                input.header = liveObj.headers
+            }
+        } else if (/yangshipin|1905\.com/.test(input)) {
+            input = {parse: 1, jx: 0, url: input, js: '', header: {'User-Agent': PC_UA}, parse_extra: '&is_pc=1'};
         }
-    };
 
-    if (/\.(m3u8|mp4)/.test(input)) {
-        // 处理媒体文件URL
-        let processedUrl = input;
-        if (input.includes('?')) {
-            // 这里应该是解码input而不是id，根据逻辑推测可能是笔误
-            processedUrl = safeDecode(input); // 解码包含查询参数的URL
-        }
-        const result = { parse: 0, url: processedUrl };
-        if (liveObj && liveObj.headers) {
-            result.header = liveObj.headers;
-        }
-        return result; // 直接返回对象，不再整体解码
-    } else if (/yangshipin|1905\.com/.test(input)) {
-        // 处理特定网站URL
-        return {
-            parse: 1,
-            jx: 0,
-            url: safeDecode(id), // 解码id参数
-            js: '',
-            header: { 'User-Agent': PC_UA }, // 假设PC_UA已正确定义
-            parse_extra: '&is_pc=1'
-        };
-    }
-
-    // 其他情况直接返回原始input（保持类型安全）
-    return input;
-}
+        return input
+    },
 }
 
 /**
