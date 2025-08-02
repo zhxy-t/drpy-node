@@ -31,8 +31,8 @@ var rule = {
     play_parse: true,
     lazy: async function () {
         let {input, flag, getProxyUrl} = this;
-       //console.log('getProxyUrl的结果:', getProxyUrl);
-         log(input);
+        // log(input);
+        // log(flag);
         let guid = '';
         let url = '';
         if (flag === 'CCTV') {
@@ -40,7 +40,8 @@ var rule = {
             url = await getM3u8(guid, getProxyUrl);
         } else if (flag === 'CCTV4K') {
             guid = input;
-            url = 'https://hls09.cntv.myhwcdn.cn/asp/hls/4000/0303000a/3/default/' + guid + '/4000.m3u8';
+           // url = 'https://hls09.cntv.myhwcdn.cn/asp/hls/4000/0303000a/3/default/' + guid + '/4000.m3u8';
+           url = await getM3u8(guid, getProxyUrl);
         } else if (flag === 'CCTV直播') {
             let channel = input.split('/').slice(-2)[0];
             url = `https://vdnx.live.cntv.cn/api/v3/vdn/live?channel=${channel}&vn=1`;
@@ -50,7 +51,6 @@ var rule = {
             let json = JSON.parse(html);
             let indexM3u8 = json.manifest.hls_cdrm.split('?')[0]; // 不去除问号后面的内容的话只能获取到最高720p分辨率
             // log(indexM3u8);
-          //  console.log('indexM3u8的结果:', indexM3u8);
             html = await request(indexM3u8);
             let hdUrl = html.split('\n').find(i => i && !i.startsWith('#'));
             hdUrl = urljoin(indexM3u8, hdUrl);
@@ -65,20 +65,10 @@ var rule = {
             let html = await request(input);
             guid = getRegexText(html, 'var\\sguid\\s*=\\s*"(.+?)";', 1);
             url = await getM3u8(guid, getProxyUrl);
-          //  console.log('url的结果:', url);
         }
-        
-    // 判断是否是本地地址
-    let rurl = url;
-    if (!url.includes('127.0.0.1')) {
-        rurl = url.replace('http', 'https');
-    }
-    
         return {
             parse: 0,
-           // url: url.replace(/zhxy.eu.org/g, 'ds.playdreamer.cn')
-          //  .replace(/127.0.0.1:5757/g, 'ds.playdreamer.cn'),
-            url: rurl,
+            url: url,
             headers: rule.headers
         }
     },
@@ -87,7 +77,7 @@ var rule = {
 
     推荐: async function () {
         let {input, publicUrl} = this;
-        let liveImgUrl = urljoin(publicUrl, 'https://git-proxy.playdreamer.cn/hjdhnx/drpy-node/raw/main/public/images/lives.jpg');
+        let liveImgUrl = urljoin(publicUrl, './images/lives.jpg');
         let html = await request(input);
         let vods = get_list_lm(html, '栏目大全');
         vods.unshift({
@@ -153,7 +143,7 @@ var rule = {
                 let _url = `https://tv.cctv.com/live/${_title}/`;
                 video_list.append(`${_title}$${_url}`);
             });
-            let liveImgUrl = urljoin(publicUrl, 'https://git-proxy.playdreamer.cn/hjdhnx/drpy-node/raw/main/public/images/lives.jpg');
+            let liveImgUrl = urljoin(publicUrl, './images/lives.jpg');
             let vod = {
                 "vod_id": vid,
                 "vod_name": 'CCTV直播频道列表',
@@ -185,6 +175,7 @@ var rule = {
         let actors = aid.length > 6 ? aid[6] : '';
         let brief = aid.length > 7 ? aid[7] : '';
         let count = aid.length > 8 ? aid[8] : '';
+        let desc = aid.length > 9 ? aid[9] : '';
         let fromId = 'CCTV';
         let reqUrl = '';
         if (tid === '栏目大全') {
@@ -239,14 +230,13 @@ var rule = {
             "type_name": tid,
             "vod_year": vod_year,
             "vod_area": "",
-            "vod_remarks": count ? `共${count}集` : '',
+            "vod_remarks": count ? `共${count}集` : desc,
             "vod_actor": actors,
             "vod_director": '',
             "vod_content": brief
         };
         vod['vod_play_from'] = fromId;
         vod['vod_play_url'] = video_list.join('#');
-     //   console.log('video_list的结果:', video_list);
         return vod
     },
     搜索: async function () {
@@ -261,7 +251,8 @@ var rule = {
         let url = '';
         let is_live = 0;
         if (proxyPath) {
-            const BASE_URL = 'https://dh5.cntv.myalicdn.com/'.rstrip('/');
+            const BASE_URL = 'https://dh5.cntv.qcloudcdn.com/'.rstrip('/');
+        //    const BASE_URL = 'https://dh5.cntv.myalicdn.com/'.rstrip('/');
             url = `${BASE_URL}/${proxyPath}`;
         } else {
             url = base64Decode(input.split('#')[0]);
@@ -350,8 +341,9 @@ function get_list_lm(html, tid, year_prefix) {
         let brief = it.column_brief;
         let count = it.count;
         if (url.toString().length > 0) {
-            let guids = [tid, title, url, img, id, year, actors, brief, count];
+            let guids = [tid, title, url, img, id, year, actors, brief, count,desc];
             let guid = guids.join('||');
+            log(`✅guid的结果: ${guid}`);
             d.push({
                 title: title,
                 desc: desc.includes('》') ? desc.split('》')[1].strip() : desc.strip(),
@@ -494,6 +486,9 @@ async function getM3u8(pid, getProxyUrl) {
     const subUrl = arr[arr.length - 1].split('/');
     const maxVideo = subUrl[subUrl.length - 1].replace('.m3u8', '');
     let hdUrl = link.replaceAll('main', maxVideo);
+    if (hdUrl === '') {
+    hdUrl = '2000';
+    }
     hdUrl = hdUrl.replace(urlPrefix, 'https://newcntv.qcloudcdn.com');
     /*
     const hdResponse = await request(hdUrl);

@@ -19,11 +19,11 @@ async function detectApiType(host) {
         '/api.php/getappapi.index/searchList',
         '/api.php/qijiappapi.index/searchList'
     ];
-    let apiType; // 声明apiType，避免全局污染
+    let apiType; 
 
     for (const api of testApis) {
         const testUrl = `${host}${api}`;
-        try { // 外部try块添加catch，捕获所有请求相关错误
+        try { 
             console.log(`[API检测] 开始检测: ${testUrl}`);
             const res = await request(testUrl, { timeout: 3000 });
             
@@ -34,10 +34,10 @@ async function detectApiType(host) {
 
             let jsonRes;
             try {
-                jsonRes = JSON.parse(res); // 单独捕获JSON解析错误
+                jsonRes = JSON.parse(res); 
             } catch (parseErr) {
                 console.log(`[API检测] ${testUrl} JSON解析失败: ${parseErr.message}`);
-                continue; // 解析失败，跳过当前接口
+                continue; 
             }
 
             if (!jsonRes.data) {
@@ -45,46 +45,27 @@ async function detectApiType(host) {
                 continue;
             }
 
-            // 处理code逻辑（无需额外try-catch，因jsonRes已确定为对象）
             const code = jsonRes.code;
-            if (code == 0) {
+            if (code) {
                 apiType = api.includes('getappapi') ? 'getappapi' : 'qijiappapi';
                 console.log(`[API检测] 成功！${testUrl} 类型: ${apiType}`);
-                return apiType; // 成功则返回
+                return apiType; 
             } else {
                 console.log(`[API检测] ${testUrl} code不为0，跳过`);
             }
 
-        } catch (err) { // 捕获请求相关错误（超时、网络异常等）
+        } catch (err) { 
             console.log(`[API检测] ${testUrl} 请求失败: ${err.message}`);
-            continue; // 错误不中断，继续检测下一个接口
+            continue; 
         }
     }
 
     console.log('[API检测] 所有接口检测失败');
-    return apiType; // 失败时返回undefined（或根据需求返回默认值）
+    return 'qijiappapi'; 
 }
 
-            /*
-            const decryptedData = rule.decrypt(jsonRes.data);
-            const parsedData = JSON.parse(decryptedData);
-            if (parsedData.recommend_list || parsedData.type_list) {
-                const apiType = api.includes('getappapi') ? 'getappapi' : 'qijiappapi';
-                console.log(`[API检测] 成功！${testUrl} 类型: ${apiType}`);
-                return apiType;
-            }
-            
-        } catch (e) {
-            console.log(`[API检测错误] ${testUrl}: ${e.message}`);
-            continue;
-        }
-    }
-    console.log('[API检测] 所有接口检测失败');
-    return null;
-}*/
 
-
-const rule = {
+var rule = {
     类型: '影视',
     title: 'Appget[模板]',
     author: 'wow',
@@ -611,3 +592,5 @@ async function verifySearch(body, maxAttempts = 3) {
     console.log('验证失败');
     return [];
 }
+
+
