@@ -66,12 +66,21 @@ var rule = {
             guid = getRegexText(html, 'var\\sguid\\s*=\\s*"(.+?)";', 1);
             url = await getM3u8(guid, getProxyUrl);
         }
+        // 判断是否是本地地址
+    let rurl = url;
+    if (!url.includes('127.0.0.1')) {
+        rurl = url.replace(/http:/g, 'https:');
+    }
+    
         return {
             parse: 0,
-            url: url,
+           // url: url.replace(/zhxy.eu.org/g, 'ds.playdreamer.cn')
+          //  .replace(/127.0.0.1:5757/g, 'ds.playdreamer.cn'),
+            url: rurl
             headers: rule.headers
         }
     },
+        
     limit: 6,
     double: false,
 
@@ -343,7 +352,6 @@ function get_list_lm(html, tid, year_prefix) {
         if (url.toString().length > 0) {
             let guids = [tid, title, url, img, id, year, actors, brief, count,desc];
             let guid = guids.join('||');
-            log(`✅guid的结果: ${guid}`);
             d.push({
                 title: title,
                 desc: desc.includes('》') ? desc.split('》')[1].strip() : desc.strip(),
