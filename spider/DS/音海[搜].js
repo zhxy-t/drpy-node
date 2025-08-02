@@ -101,6 +101,7 @@ var rule = {
             const reg = new RegExp(KEY, 'i');
             d = d.filter(item => item.title && reg.test(item.title));
         }
+        d = d.slice(0, 50);
 
         return setResult(d);
     }
