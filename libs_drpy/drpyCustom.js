@@ -9,7 +9,6 @@ globalThis.CATE_EXCLUDE = '首页|留言|APP|下载|资讯|新闻|动态';
 globalThis.TAB_EXCLUDE = '猜你|喜欢|下载|剧情|榜|评论';
 globalThis.OCR_RETRY = 3;//ocr验证重试次数
 globalThis.OCR_API = 'https://api.nn.ci/ocr/b64/text';//ocr在线识别接口
-
 globalThis.nodata = {
 /*
     list: [{
@@ -21,7 +20,6 @@ globalThis.nodata = {
     total: 1, pagecount: 1, page: 1, limit: 1
     */
 };
-
 globalThis.SPECIAL_URL = /^(ftp|magnet|thunder|ws):/;
 
 
