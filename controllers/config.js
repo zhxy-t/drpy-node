@@ -56,7 +56,7 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
 
     //以下为自定义APP模板部分
     try {
-      //  const templateConfigPath = path.join(jsonDir, '../pz/App模板配置.json');
+      //  const templateConfigPath = path.join(jsonDir, './App模板配置.json');
         const templateConfigPath = path.join(configDir, '../pz/App模板配置.json');
         if (existsSync(templateConfigPath)) {
             const templateContent = readFileSync(templateConfigPath, 'utf-8');
@@ -512,6 +512,7 @@ if (newName.includes('[听]')) {
     "[存储]": "🗂️",
     "[分享]": "🗂️",
     "[夸克]": "🟣",
+    "[派储]": "🔷",
     "[盘]": "🔵",
     "[APP]": "🔶",
     "[优]": "❤️",
@@ -519,7 +520,6 @@ if (newName.includes('[听]')) {
     "苹果": "❤️",
     "[儿]": "👶",
     "[球]": "⚽",
-
     "[合]": "🎁",
     "[短]": "📱",
     "剧多": "📱",
@@ -716,7 +716,7 @@ function customSort(a, b) {
 
     function shouldExclude(s) {
     const kws = [
-        'Appg', 'AppS', 'Appm','Appr',
+        'Appg', 'Apps', 'Appm','Appr','Appv','Appc','Appt',
        'uuu','密',
     ];
     return kws.some(kw => s.name.toLowerCase().includes(kw.toLowerCase()));
