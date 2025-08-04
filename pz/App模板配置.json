@@ -1,4 +1,9 @@
 {
+    "ApptoV5": {
+        "追忆": {
+            "url": "http://111.173.114.61:8762"
+        }
+    },
     "AppRJ": {
         "示例": {
             "host": ""
@@ -31,7 +36,6 @@
             "site": "http://t.bffree.cn/1.txt",
             "dataKey": "2015692015692015"
         },
-        
         "鲸鱼": {
             "muban": "AppQiji",
             "host": "",
