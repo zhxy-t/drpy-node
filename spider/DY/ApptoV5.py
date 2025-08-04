@@ -1,13 +1,3 @@
-"""
-@header({
-  searchable: 1,
-  filterable: 1,
-  quickSearch: 1,
-  title: 'ApptoV5',
-  lang: 'hipy'
-})
-"""
-
 import re
 import sys
 import uuid
