@@ -7,41 +7,7 @@
   lang: 'ds'
 })
 */
-/*
-采集1: {
-            title: '',
-            host: '',
-            homeTid: '13',
-            homeUrl: '/api.php/provide/vod/?ac=detail&t={{rule.homeTid}}',
-            detailUrl: '/api.php/provide/vod/?ac=detail&ids=fyid',
-            searchUrl: '/api.php/provide/vod/?wd=**&pg=fypage',
-            url: '/api.php/provide/vod/?ac=detail&pg=fypage&t=fyclass',
-            headers: {'User-Agent': 'MOBILE_UA'},
-            timeout: 5000, // class_name: '电影&电视剧&综艺&动漫',
-            // class_url: '1&2&3&4',
-            // class_parse:'js:let html=request(input);input=JSON.parse(html).class;',
-            class_parse: 'json:class;',
-            limit: 20,
-            multi: 1,
-            searchable: 2,//是否启用全局搜索,
-            quickSearch: 1,//是否启用快速搜索,
-            filterable: 0,//是否启用分类筛选,
-            play_parse: true,
-            parse_url: '',
-            lazy: cj_lazy,
-            推荐: '*',
-            一级: 'json:list;vod_name;vod_pic;vod_remarks;vod_id;vod_play_from',
-            二级: `js:
-            let html=request(input);
-            html=JSON.parse(html);
-            let data=html.list;
-            VOD=data[0];`,
-            搜索: '*',
-        },
-    };
-    return JSON.parse(JSON.stringify(mubanDict));
-}*/
-//http://154.12.22.168:14987/api.php/Appfox/vod
+
 async function detectApiType(host) {
     const testApis = [
         '/api.php/Appfox/vod',
@@ -133,7 +99,7 @@ var rule = {
     cate_exclude: '网址|专题',
     title_remove: ['广告', '破解', '群'],
     line_remove: ['线路1', '线路2', '线路3'],
-    line_order: ['原画', '蓝光', '蓝光3'],
+    line_order: ['JL4K', '蓝光', '蓝光3'],
     playRegex: /\.m3u8|\.mp4|\.mkv/i,
     hostJs: async function () {
      try {
@@ -223,14 +189,12 @@ var rule = {
         let { input, MY_CATE, MY_PAGE, MY_FL } = this;
         const d = [];
         const fl = MY_FL;
-        //const filter_url = `&class=${fl.class}&area=${fl.area}&lang=${fl.lang}&year=${fl.year}`;
-// 定义各参数的默认值
-const defaults = {
-  class: '', // 这里替换为实际默认值，比如 'all'
-  area: '',  // 例如 'global'
-  lang: '',  // 例如 'zh'
-  year: ''   // 例如 '2023'
-};
+    const defaults = {
+    class: '', // 这里替换为实际默认值，比如 'all'
+    area: '',  // 例如 'global'
+    lang: '',  // 例如 'zh'
+     year: ''   // 例如 '2023'
+    };
 
 // 拼接参数（使用默认值兜底）
 const params = [
@@ -346,6 +310,13 @@ const filter_url = `&${params.join('&')}`;
     lazy: async function(flag, id, flags) {
     let { input } = this;
     const isPlayUrl = rule.playRegex.test(input);
+    //http://111.170.141.143:999/api.php/?key=VOP2GjuNd9t4&url=
+    if (flag==='JL4K') {
+    const jxUrl = `http://194.147.100.155:7891/?url=${input}`;
+    const html = await request(jxUrl);
+    const data = JSON.parse(html);
+    return { url: data.url, parse: 0, header: rule.headers };
+    }
     if (isPlayUrl) {
     console.log(`[播放处理] 直接播放: ${input}`);
     return { url: input, parse: 0, header: rule.headers };
