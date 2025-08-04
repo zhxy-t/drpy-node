@@ -449,6 +449,7 @@ rule.lazyheader = config.lazyheader?.length ? config.lazyheader : rule.headers;
                             const jdata = rule.decrypt(data);
                             const outerData = JSON.parse(jdata);
                             const innerData = JSON.parse(outerData.json);
+                            log(`[解密的结果]: ${JSON.stringify(innerData, null, 4)}`);
                             const jxUrl = await checkVideoLink(innerData.url);
                             return jxUrl.valid ? {
                                 parse: 0,

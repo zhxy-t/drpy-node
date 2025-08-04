@@ -66,21 +66,16 @@ var rule = {
             guid = getRegexText(html, 'var\\sguid\\s*=\\s*"(.+?)";', 1);
             url = await getM3u8(guid, getProxyUrl);
         }
-        // 判断是否是本地地址
-    let rurl = url;
-    if (!url.includes('127.0.0.1')) {
-        rurl = url.replace(/http:/g, 'https:');
-    }
-    
+        let rurl = url;
+        if (!url.includes('127.0.0.1')) {
+        rurl = url.replace('http', 'https');
+        }
         return {
             parse: 0,
-           // url: url.replace(/zhxy.eu.org/g, 'ds.playdreamer.cn')
-          //  .replace(/127.0.0.1:5757/g, 'ds.playdreamer.cn'),
             url: rurl,
             headers: rule.headers
         }
     },
-        
     limit: 6,
     double: false,
 
