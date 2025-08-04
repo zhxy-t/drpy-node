@@ -1,18 +1,5 @@
 /*
 @header({
-  searchable: 1,
-  filterable: 1,
-  quickSearch: 0,
-  title: 'APP模板配置',
-  more: {
-    sourceTag: '设置,动作',
-    actions: [
-      {
-        name: 'APP模板|配置相关',
-        action: '{\'actionId\':\'单选菜单\',\'type\':\'menu\',\'title\':\'Action菜单\',\'width\':500,\'column\':1,\'option\':[\'导入分享配置$menu1\',\'分享APP配置$menu2\'],\'selectedIndex\':0}'
-      }
-    ]
-  },
   lang: 'ds'
 })
 */
@@ -23,6 +10,8 @@ const {
 } = require('fs');
 const process = require('process');
 const path = require('path');
+let App_Path = './pz/App模板配置.json';
+let App_Data = JSON.parse(readFileSync(App_Path, 'utf-8'));
 
 var rule = {
     类型: '影视',
@@ -60,8 +49,9 @@ var rule = {
         let {
             jsonUrl
         } = this;
-        const config_path = urljoin(jsonUrl, './App模板配置.json');
-        rule.config = JSON.parse(await request(config_path));
+       // const config_path = urljoin(jsonUrl, './App模板配置.json');
+      //  rule.config = JSON.parse(await request(config_path));
+      rule.config = App_Data;
         let classes = Object.keys(rule.config).map(key => {
             return {
                 type_name: `${key}(${Object.keys(rule.config[key]).filter(item => item != '示例').length})`,
@@ -74,15 +64,12 @@ var rule = {
         }
     },
     推荐: async function(tid, pg, filter, extend) {},
-
     一级: async function(tid, pg, filter, extend) {
         let {
+            publicUrl,
             MY_FL,
             MY_CATE,
             MY_PAGE
-        } = this;
-        let {
-            publicUrl
         } = this;
         const ICON_URL = urljoin(publicUrl, './images/icon_cookie/'); // 继承设置中心的图标路径
         const ICONS = {
@@ -276,6 +263,17 @@ var rule = {
         if (MY_FL.custom_pinyin) d = d.filter(it => getFirstLetter(it.vod_name).includes(MY_FL.custom_pinyin));
         return d;
     },
+        
+        
+        /*
+        if (MY_FL.custom) {
+            d = d.filter(it => it.vod_name.includes(MY_FL.custom));
+        } else if (MY_FL.custom_pinyin) {
+            d = d.filter(it => getFirstLetter(it.vod_name).includes(MY_FL.custom_pinyin));
+        }
+        return d;
+    },
+    */
     action: async function(action, value) {
         rule.config = rule.config || readConfig();
         if (action == '单选菜单') {
@@ -350,13 +348,7 @@ var rule = {
                 return '请输入源名';
             }
         } else if (action == '修改配置') {
-        let {
-                MB,
-                name,
-                ...config
-            } = value;
-    let Value = {};
-    
+            let Value = {};
             value = JSON.parse(value);
             try {
                 value.input.forEach(item => {
@@ -364,6 +356,11 @@ var rule = {
                 });
                 value = Value;
             } catch (e) {}
+            let {
+                MB,
+                name,
+                ...config
+            } = value;
             if (name) {
                 Object.keys(config).forEach(it => {
                     if (it.includes('header')) {
@@ -373,46 +370,45 @@ var rule = {
                 });
                 rule.config[MB][name] = config;
                 writeConfig(rule.config);
-                return `【${MB}:${name}】配置修改成功`
-                /*JSON.stringify({
+                return JSON.stringify({
                     action: {
                         actionId: '__refresh_list__',
                     },
                     toast: `【${MB}:${name}】配置修改成功`
-                }); 
-                */
+                });
             } else {
                 return '请输入源名';
             }
-        }else if (action == '删除APP配置') {
+        } else if (action == '删除APP配置') {
             let MB = '';
             let name = '';
             try {
-                let parsedValue = JSON.parse(value);
+            let parsedValue = JSON.parse(value);
                 name = parsedValue.filter(item => item.selected === true).map(item => item.name);
                 MB = parsedValue.filter(item => item.selected === true).map(item => item.action);
-
-                //MB = JSON.parse(value).value.split('$')[0];
-                //  name = JSON.parse(value).value.split('$')[1];
+                
+             //   MB = JSON.parse(value).value.split('$')[0];
+             //   name = JSON.parse(value).value.split('$')[1];
             } catch (e) {
                 MB = value.split('$')[0];
                 name = value.split('$')[1];
             }
             delete rule.config[MB][name];
             writeConfig(rule.config);
-            return
-                /*
-                JSON.stringify({
-                    action: {
-                        actionId: '__refresh_list__'
-                    },
-                    toast: `【${MB}:${name}】配置已删除`
-                });*/
-                `【${MB}:${name}】配置已删除`
+            return `【${MB}:${name}】配置已删除`
+           /* JSON.stringify({
+                action: {
+                    actionId: '__refresh_list__'
+                },
+                toast: `【${MB}:${name}】配置已删除`
+            });*/
         } else if (action == '删除APP配置(多选)') {
             let MB = '';
             try {
-                MB = JSON.parse(value).value.split('$')[0];
+              //  MB = JSON.parse(value).value.split('$')[0];
+              let parsedValue = JSON.parse(value);
+                name = parsedValue.filter(item => item.selected === true).map(item => item.name);
+                MB = parsedValue.filter(item => item.selected === true).map(item => item.action);
             } catch (e) {
                 MB = value.split('$')[0];
             }
@@ -453,13 +449,8 @@ var rule = {
         } else if (action == '分享APP配置') {
             let MB = '';
             let name = '';
-            log(`✅value的结果: ${value}`);
-            
             try {
-            let parsedValue = JSON.parse(value);
-                name = parsedValue.filter(item => item.selected === true).map(item => item.name);
-                MB = parsedValue.filter(item => item.selected === true).map(item => item.action);
-               // MB = JSON.parse(value).value.split('$')[0];
+                MB = JSON.parse(value).value.split('$')[0];
                 name = JSON.parse(value).value.split('$')[1];
             } catch (e) {
                 MB = value.split('$')[0];
@@ -475,14 +466,10 @@ var rule = {
                 },
                 toast: `【${MB}:${name}】配置已复制到剪贴板`
             });
-            
         } else if (action == '分享APP配置(多选)') {
             let MB = '';
             try {
-            let parsedValue = JSON.parse(value);
-                name = parsedValue.filter(item => item.selected === true).map(item => item.name);
-                MB = parsedValue.filter(item => item.selected === true).map(item => item.action);
-                //MB = JSON.parse(value).value.split('$')[0];
+                MB = JSON.parse(value).value.split('$')[0];
             } catch (e) {
                 MB = value.split('$')[0];
             }
@@ -506,7 +493,6 @@ var rule = {
         } else if (action == '多选菜单分享') {
             let list = [];
             try {
-                //const selectedItems = value.filter(item => item.selected === true);
                 list = JSON.parse(value).option.filter(it => it.selected);
             } catch (e) {
                 list = JSON.parse(value).filter(it => it.selected);
@@ -527,34 +513,7 @@ var rule = {
                 toast: `${list.length}个配置已复制到剪贴板`
             });
             return ''
-        } else if (action == '编辑配置') {
-            let share = JSON.parse(value).share;
-            if (share == '') {
-                return '暂无配置内容';
-            }
-            try {
-                let config = JSON.parse(share);
-                let rule_config = rule.config || readConfig();
-                Object.keys(config).forEach(muban => {
-                    if (!rule_config[muban]) {
-                        rule_config[muban] = {};
-                    }
-                    Object.assign(rule_config[muban], config[muban]);
-                });
-                writeConfig(rule_config);
-                return JSON.stringify({
-                    action: {
-                        actionId: '__refresh_list__'
-                    },
-                    toast: `配置导入成功`
-                });
-            } catch (e) {
-                return '出现错误，请仔细检查配置：' + e.message;
-            }
-   //     }
-    //   } else return `没有动作:${action}的可执行逻辑`;
-        
-      }  if (action === '导入配置') {
+        } else if (action === '导入配置') {
             try {
                 console.log('\n【导入配置】原始输入:', value);
                 let share = '';
@@ -650,6 +609,7 @@ var rule = {
             }
         }
         return `没有动作:${action}的可执行逻辑`;
+    
     }
 };
 
@@ -660,7 +620,7 @@ function writeConfig(config) {
         return; // 直接返回，不执行后续代码
     }
 
-    const configPath = path.join(process.cwd(), 'json', 'App模板配置.json');
+    const configPath = path.join(process.cwd(), 'pz', 'App模板配置.json');
     try {
         writeFileSync(configPath, JSON.stringify(config, null, 4), 'utf8');
         console.log('配置写入完成');
@@ -670,7 +630,7 @@ function writeConfig(config) {
 }
 
 function readConfig() {
-    const configPath = path.join(process.cwd(), 'json', 'App模板配置.json');
+    const configPath = path.join(process.cwd(), 'pz', 'App模板配置.json');
     try {
         let config = readFileSync(configPath, 'utf8');
         config = JSON.parse(config);
@@ -687,7 +647,7 @@ function getConfigArr() {
     for (const [action, items] of Object.entries(data)) {
         // 遍历每个分类下的所有项目
         for (const name of Object.keys(items)) {
-            if (name !== '示例') {
+if (!['示例', '说明'].includes(name)) {
                 result.push({
                     name: name,
                     action: action,
