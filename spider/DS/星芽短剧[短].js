@@ -121,8 +121,6 @@ var rule = {
         let html = await request(input, {headers: rule.headers});
         let data = JSON.parse(html).data;
         const descTags = data.desc_tags;
-        console.log('✅data的结果:', descTags);
-      // console.log(`✅data的结果: ${JSON.stringify(data, null, 4)}`);
         let vod = {
             vod_id: input,
             vod_name: data.title,
