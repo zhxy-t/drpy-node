@@ -13,20 +13,7 @@ let { readFileSync } = require('fs');
 let App_Path = './pz/App模板配置.json';
 let App_Data = JSON.parse(readFileSync(App_Path, 'utf-8'));
 
-function shouldRemoveLine(lineName, patterns) {
-    if (!patterns || patterns.length === 0) return false;
-    let lowerLine = lineName.toLowerCase();
-    return patterns.some(pattern =>
-        lowerLine.includes(pattern.toLowerCase())
-    );
-}
-function shouldRemoveTitle(title, patterns) {
-    if (!patterns || patterns.length === 0) return false;
-    let lowerTitle = title.toLowerCase();
-    return patterns.some(pattern =>
-        lowerTitle.includes(pattern.toLowerCase())
-    );
-}
+
 var rule = {
     类型: '影视',
     title: 'Appmuou模板',
@@ -180,7 +167,9 @@ var rule = {
         return d;
     },
     二级: async function(ids) {
-    let { input } = this;
+    let {
+        input
+    } = this;
     let data = await request(input, {
         headers: rule.headers
     });
@@ -197,61 +186,60 @@ var rule = {
         vod_actor: detail.vod_actor,
         vod_content: detail.vod_content
     };
-
     try {
         let playform = [];
         let playurls = [];
         let playlist = detail.vod_play_list;
 
-        if (playlist && playlist.length != 0) {
-            // 1. 过滤需要移除的线路
-            playlist = playlist.filter(item => 
-                item.player_info && 
-                item.player_info.show &&
-                !shouldRemoveLine(item.player_info.show, rule.line_remove)
+        // 过滤不需要的播放线路（修复逻辑：明确判断line存在）
+        const isBadLine = (line) => {
+            return rule.line_remove && line && rule.line_remove.some(pattern => 
+                line.toLowerCase().includes(pattern.toLowerCase())
             );
+        };
 
-            // 2. 核心修改：优化线路优先级匹配逻辑
-            const getPriority = (lineName) => {
-                if (!rule.line_order || !lineName) return 9999;
-                const lowerLine = lineName.toLowerCase();
-                
-                // 完全匹配（如 line_order 中有 "蓝光2"）
-                const exactMatchIndex = rule.line_order.findIndex(
-                    pattern => pattern.toLowerCase() === lowerLine
-                );
-                if (exactMatchIndex >= 0) return exactMatchIndex;
-
-                // 部分匹配（如 line_order 有 "蓝光"，匹配 "蓝光2"）
-                const partialMatchIndex = rule.line_order.findIndex(
-                    pattern => lowerLine.includes(pattern.toLowerCase())
-                );
-                if (partialMatchIndex >= 0) return partialMatchIndex;
-
-                return 9999; // 未匹配的线路排在最后
+        // 播放线路排序逻辑
+        const sortOrder = (a, b) => {
+            const getPriority = (s) => {
+                const lowerS = s.toLowerCase();
+                for (let i = 0; i < rule.line_order.length; i++) {
+                    if (lowerS.includes(rule.line_order[i].toLowerCase())) {
+                        return i;
+                    }
+                }
+                return rule.line_order.length; 
             };
+            return getPriority(a) - getPriority(b);
+        };
 
-            // 3. 排序线路（按优先级升序）
-            playlist.sort((a, b) => {
-                const aPriority = getPriority(a.player_info.show);
-                const bPriority = getPriority(b.player_info.show);
-                return aPriority - bPriority;
+        if (playlist && Object.keys(playlist).length > 0) {
+            // 收集所有有效线路信息
+            const lines = Object.keys(playlist).map(key => {
+                const lineInfo = playlist[key];
+                const show = lineInfo.player_info.show;
+                // 处理单线路播放地址
+                const urlStr = Object.keys(lineInfo.urls).map(it => {
+                    return `${lineInfo.urls[it].name}$${lineInfo.urls[it].url}`;
+                }).join("#");
+                return {
+                    show,
+                    urlStr,
+                    from: lineInfo.player_info.from
+                };
+            })
+            // 过滤不需要的线路
+            .filter(line => !isBadLine(line.show))
+            // 按排序规则排序
+            .sort((a, b) => sortOrder(a.show, b.show));
+      log(`✅lines的结果: ${JSON.stringify(lines, null, 4)}`);
+            // 构建最终播放列表
+            lines.forEach(line => {
+                rule.from[line.show] = line.from;
+                playform.push(line.show);
+                playurls.push(line.urlStr);
             });
-
-
-            // 5. 组装播放数据
-            playlist.forEach(item => {
-                rule.from[item.player_info.show] = item.player_info.from;
-                playform.push(item.player_info.show);
-                playurls.push(
-                    Object.keys(item.urls).map(key => 
-                        `${item.urls[key].name}$${item.urls[key].url}`
-                    ).join("#")
-                );
-            });
-
-            vod.vod_play_from = playform.join("$$$") || '暂无资源';
-            vod.vod_play_url = playurls.join("$$$") || '暂无资源$0';
+            vod.vod_play_from = playform.join("$$$");
+            vod.vod_play_url = playurls.join("$$$");
         } else {
             vod.vod_play_from = '暂无资源';
             vod.vod_play_url = '暂无资源$0';
@@ -262,6 +250,7 @@ var rule = {
     }
     return vod;
 },
+
     搜索: async function(wd, quick, pg) {
         let {input, KEY, MY_PAGE} = this;
         let d = [];
@@ -272,10 +261,9 @@ var rule = {
         if (rule.search_match) {
             search_list = search_list.filter(item =>
                 item.vod_name &&
-                new RegExp(wd, "i").test(item.vod_name)
+                new RegExp(KEY, "i").test(item.vod_name)
             );
         }
-        search_list = search_list.filter(item => !shouldRemoveTitle(item.vod_name, rule.title_remove));
         search_list.forEach(it => {
             d.push({
                 vod_name: it.vod_name,
@@ -289,14 +277,18 @@ var rule = {
     },
     lazy: async function(flag, id, flags) {
         let {input} = this;
+        console.log('解析类型>>>' + rule.from[flag]);
         try {
             const playerinfo = await post(`${rule.jxhost}/api.php?action=playerinfo`, {
                 headers: rule.headers
             });
             const data = JSON.parse(rule.decrypt(playerinfo)).data;
+            log(`✅data的结果: ${JSON.stringify(data, null, 4)}`);
             const parseInfo = data.playerinfo.find(it => it.playername == rule.from[flag]);
+            log(`✅parseInfo的结果: ${parseInfo}`);
             if (parseInfo) {
                 const playerjiekou = parseInfo.playerjiekou;
+                log(`✅[内置解析的链接]: ${playerjiekou}`);
                 const parseurl = playerjiekou + input;
                 const parsedata = await request(parseurl, {
                     timeout: 10000

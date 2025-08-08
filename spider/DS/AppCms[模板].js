@@ -7,7 +7,8 @@
   lang: 'ds'
 })
 */
-
+const {req_} = $.require('./_lib.request.js')
+//https://app.m3u8.news/api.php/Appfox/init
 async function detectApiType(host) {
     const testApis = [
         '/api.php/Appfox/vod',
@@ -226,19 +227,14 @@ var rule = {
         } = this;
         const d = [];
         const fl = MY_FL;
-        const defaults = {
-            class: '', // 这里替换为实际默认值，比如 'all'
-            area: '', // 例如 'global'
-            lang: '', // 例如 'zh'
-            year: '' // 例如 '2023'
-        };
+        
 
         // 拼接参数（使用默认值兜底）
         const params = [
-            `class=${fl.class || defaults.class}`,
-            `area=${fl.area || defaults.area}`,
-            `lang=${fl.lang || defaults.lang}`,
-            `year=${fl.year || defaults.year}`
+            `class=${fl.class || ''}`,
+            `area=${fl.area || ''}`,
+            `lang=${fl.lang || ''}`,
+            `year=${fl.year || ''}`
         ];
 
         const filter_url = `&${params.join('&')}`;
@@ -278,8 +274,11 @@ var rule = {
             input,
             orId
         } = this;
+        log(`✅data的结果: ${orId}`);
+        rule.id = orId;
         let html = await request(input);
         let data = JSON.parse(html).list[0];
+        log(`✅data的结果: ${JSON.stringify(data, null, 4)}`);
         // 基本信息处理
         VOD = {
             vod_id: data['vod_id'] || '暂无id',
@@ -345,40 +344,39 @@ var rule = {
         VOD.vod_play_url = sortedSources.map(s => playMap[s].join('#')).join('$$$') || '暂无资源$0';
         return VOD;
     },
-
+//https://www.jiabaide.cn/api/mw-movie/anonymous/v2/video/episode/url?clientType=1&id=138474&nid=1219720
 
     lazy: async function(flag, id, flags) {
-        let {
-            input
-        } = this;
-        const isPlayUrl = rule.playRegex.test(input);
-        //http://111.170.141.143:999/api.php/?key=VOP2GjuNd9t4&url=
-       // JL-fa657fd2b73e6dbda8a8647d9475fac50
-        if (/^[A-Za-z]{2}-/.test(input)) {
-    // 当input是"两个字母加横线"格式时（如JL-xxx）
-    const purl = await getFirstValidUrl(input);
-    return {
-        url: purl,
-        parse: 0,
-        header: rule.headers
-    };
-}
-        if (isPlayUrl) {
-            console.log(`[播放处理] 直接播放: ${input}`);
-            return {
-                url: input,
-                parse: 0,
-                header: rule.headers
-            };
-        } else {
-            return {
-                url: input,
-                jx: 1,
-                header: rule.headers
-            };
-        }
+    let { getProxyUrl, input } = this;
+    const isPlayUrl = rule.playRegex.test(purl);
 
-    },
+    // 处理"两个字母加横线"格式（如JL-xxx）
+    if (/^[A-Za-z]{2}-/.test(input)) {
+        const purl = await getFirstValidUrl(input);
+        return {
+            url: purl,
+            parse: 0,
+            header: rule.headers
+        };
+    }
+
+    // 处理播放链接判断
+    if (isPlayUrl) {
+        console.log(`[播放处理] 直接播放: ${input}`);
+        return {
+            url: input,
+            parse: 0,
+            header: rule.headers
+        };
+    } else {
+        return {
+            url: input,
+            jx: 1,
+            header: rule.headers
+        };
+    }
+},
+
 
     搜索: async function() {
         let {
@@ -443,7 +441,6 @@ var rule = {
                 url: item.vod_id 
             });
         });
-        log(`✅data的结果: ${JSON.stringify(d, null, 4)}`);
         return setResult(d);
     }
 
