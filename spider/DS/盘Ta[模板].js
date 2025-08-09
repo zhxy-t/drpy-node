@@ -10,7 +10,7 @@
 const { req_, req_proxy } = $.require('./_lib.request.js');
 const { formatPlayUrl } = misc;
 const { readFileSync } = require('fs');
-let DOMAIN_CFG_PATH = './pz/Domain.json';
+let DOMAIN_CFG_PATH = '../pz/Domain.json';
 var rule = {
     title: '盘Ta[模版]',
     host: '',
@@ -32,7 +32,7 @@ var rule = {
         }
         let _host = rule.params.split('$')[0];
         let _name = rule.params.split('$')[1] || '默认';
-        let _shaix = `./筛选/${_name}.json`; // 动态生成筛选文件路径
+        let _shaix = `../筛选/${_name}.json`; // 动态生成筛选文件路径
         // 从配置文件读取域名
         const domainConfigContent = readFileSync(DOMAIN_CFG_PATH, 'utf-8');
         const domainConfig = JSON.parse(domainConfigContent);
