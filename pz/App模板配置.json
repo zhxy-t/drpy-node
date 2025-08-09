@@ -1,4 +1,23 @@
 {
+    "盘类": {
+        "二小": {
+            "url": "优雅$二小"
+        },
+        "蜡笔": {
+            "url": "优雅$蜡笔"
+        },
+        "闪电": {
+            "url": "优雅$闪电"
+        }
+    },
+    "盘Ta": {
+        "雷鲸": {
+            "url": "优雅$雷鲸"
+        },
+        "盘它": {
+            "url": "优雅$盘它"
+        }
+    },
     "ApptoV5": {
         "追忆": {
             "url": "http://111.173.114.61:8762"
@@ -19,6 +38,10 @@
         "说明": {
             "site": "",
             "dataKey": ""
+        },
+        "瓜仔": {
+            "host": "http://app.guaziys.com",
+            "datakey": "25356B9148F742ED"
         },
         "火猫": {
             "site": "https://cunchu8.obs.cn-north-4.myhuaweicloud.com/03.txt",
@@ -78,6 +101,12 @@
             "host": "",
             "hosturl": "",
             "version": ""
+        },
+        "演员": {
+            "host": "https://vod.feiwang.cc"
+        },
+        "落功阁": {
+            "host": "https://ww.ndjdnd.icu"
         }
     },
     "AppShark": {
