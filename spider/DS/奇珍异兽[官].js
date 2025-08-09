@@ -7,6 +7,7 @@
   lang: 'ds'
 })
 */
+const { getHtml } = $.require('./_lib.request.js');
 const { danmuProxy } = $.require('./_lib.danmuProxy.js');
 var rule = {
     title: '奇珍异兽[官]',
@@ -24,6 +25,7 @@ var rule = {
         'User-Agent': 'MOBILE_UA'
     },
     timeout: 5000,
+    play_parse: true,
     class_name: '电影&电视剧&纪录片&动漫&综艺&音乐&网络电影',
     class_url: '1&2&3&4&6&5&16',
     limit: 20,

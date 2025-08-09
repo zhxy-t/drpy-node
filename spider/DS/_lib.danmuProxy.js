@@ -5,31 +5,16 @@ async function proxy_rule(params) {
     try {
         // 校验参数并获取目标地址
         if (!params || !params.url) {
-            throw new Error('请求参数缺失或缺少input字段');
+            throw new Error('请求参数缺失或缺少url字段');
         }
-      //  let { input } = params.url;
         const targetUrl = decodeURIComponent(params.url);
         if (!targetUrl) {
             throw new Error('解析后目标地址为空');
         }
         console.log(`[弹幕流程] 4. 开始代理请求 - 目标URL: ${targetUrl}`);
         
-        // 发送请求并强化响应校验
-        try {
+        // 发送请求
         let resp = await getHtml({ url: targetUrl });
-        console.log(`[弹幕流程] 5. 代理请求完成 - 状态: ${resp.status}, 数据长度: ${resp.data?.length || 0}`);
-        
-        // 打印原始响应数据（前200字符）
-        const dataPreview = resp.data ? JSON.stringify(resp.data).substring(0, 200) : '空数据';
-        console.log(`[弹幕流程] 5.1 原始响应预览: ${dataPreview}...`);
-        
-        let parsedDanmu = await getPublicDanmu(resp.data);
-        return [200, 'text/xml', parsedDanmu];
-    } catch (error) {
-        console.error(`[弹幕流程] 请求/解析失败: ${error.message}`);
-        return [200, 'text/xml', '<<i></</i>'];
-    }
-
         
         // 校验resp是否有效且包含status属性
         if (!resp || typeof resp !== 'object' || !('status' in resp)) {
@@ -58,17 +43,17 @@ async function proxy_rule(params) {
         return [200, 'text/xml', parsedDanmu];
     } catch (error) {
         console.error(`[弹幕流程] 代理/解析失败: ${error.message}`);
-        return [500, 'text/xml', '<?xml version="1.0" encoding="UTF-8"?><<<<i></</</</i>']; // 空XML避免播放器报错
+        return [200, 'text/xml', '<?xml version="1.0" encoding="UTF-8"?><i></i>']; // 合法空XML
     }
 }
 
 // 解析芒果TV弹幕
 async function getMGDanmu(data) {
     // 初始化XML（带声明头）
-    let danmu = '<?xml version="1.0" encoding="UTF-8"?><<<<i>';
+    let danmu = '<?xml version="1.0" encoding="UTF-8"?><i>';
     if (!data || !data.data) {
         console.log(`[芒果弹幕解析] 数据无效 - 无data字段`);
-        return danmu + '</</</</i>';
+        return danmu + '</i>';
     }
     
     // 提取CDN和版本信息（清洗CDN协议前缀）
@@ -78,14 +63,14 @@ async function getMGDanmu(data) {
     
     if (!cdn || !version) {
         console.log(`[芒果弹幕解析] 缺少CDN信息 - 无法获取弹幕`);
-        return danmu + '</</</</i>';
+        return danmu + '</i>';
     }
     
     // 生成分片URL（共121个分片）
     const urls = Array.from({ length: 121 }, (_, i) => `https://${cdn}/${version}/${i}.json`);
     if (urls.length === 0) {
         console.error(`[芒果弹幕解析] 分片URL生成失败`);
-        return danmu + '</</</</i>';
+        return danmu + '</i>';
     }
     console.log(`[芒果弹幕解析] 生成分片URL - 共${urls.length}个分片`);
     
@@ -108,7 +93,7 @@ async function getMGDanmu(data) {
                             .replace(/>/g, '&gt;')
                             .replace(/"/g, '&quot;')
                             .replace(/'/g, '&#39;'); // 补充单引号转义
-                        danmu += `<<<<d p="${time},1,25,${gcolor()}">${content}</</</</d>`;
+                        danmu += `<d p="${time},1,25,${gcolor()}">${content}</d>`;
                     });
                 } else {
                     console.log(`[芒果弹幕解析] 分片${index+1}无有效数据`);
@@ -123,17 +108,17 @@ async function getMGDanmu(data) {
         console.error(`[芒果弹幕解析] 批量请求失败: ${error.message}`);
     }
     
-    return danmu + '</</</</i>';
+    return danmu + '</i>';
 }
 
 // 解析腾讯视频弹幕
 async function getQQDanmu(data) {
     // 初始化XML（带声明头）
-    let danmu = '<?xml version="1.0" encoding="UTF-8"?><<<<i>';
+    let danmu = '<?xml version="1.0" encoding="UTF-8"?><i>';
     // 数据有效性校验
     if (!data || !data.comments || !Array.isArray(data.comments)) {
         console.log(`[腾讯弹幕解析] 数据无效 - 无comments字段或非数组`);
-        return danmu + '</</</</i>';
+        return danmu + '</i>';
     }
     
     console.log(`[腾讯弹幕解析] 开始解析 - 共${data.comments.length}条评论`);
@@ -154,21 +139,21 @@ async function getQQDanmu(data) {
             console.log(`[腾讯弹幕解析] 示例弹幕${index+1}: ${timepoint}s - ${content.substring(0, 20)}`);
         }
         
-        danmu += `<<<<d p="${timepoint},1,25,${gcolor()}">${content}</</</</d>`;
+        danmu += `<d p="${timepoint},1,25,${gcolor()}">${content}</d>`;
     });
     
     console.log(`[腾讯弹幕解析] 完成解析 - 生成${data.comments.length}条弹幕`);
-    return danmu + '</</</</i>';
+    return danmu + '</i>';
 }
 
 // 解析通用格式弹幕
 async function getPublicDanmu(data) {
     // 初始化XML（带声明头）
-    let danmu = '<?xml version="1.0" encoding="UTF-8"?><<<<i>';
+    let danmu = '<?xml version="1.0" encoding="UTF-8"?><i>';
     // 数据结构校验
     if (!data || !data.danmuku || !Array.isArray(data.danmuku)) {
         console.log(`[通用弹幕解析] 数据无效 - 无danmuku字段或非数组`);
-        return danmu + '</</</</i>';
+        return danmu + '</i>';
     }
     
     let validCount = 0;
@@ -200,12 +185,12 @@ async function getPublicDanmu(data) {
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
         
-        danmu += `<<<<d p="${time},1,25,${gcolor()}">${content}</</</</d>`;
+        danmu += `<d p="${time},1,25,${gcolor()}">${content}</d>`;
         validCount++;
     });
     
     console.log(`[通用弹幕解析] 完成解析 - 有效弹幕: ${validCount}/${data.danmuku.length}`);
-    return danmu + '</</</</i>';
+    return danmu + '</i>';
 }
 
 // 随机颜色生成（共用函数）
