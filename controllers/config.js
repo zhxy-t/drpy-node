@@ -56,31 +56,36 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
 
     //以下为自定义APP模板部分
     try {
-      //  const templateConfigPath = path.join(jsonDir, './App模板配置.json');
-        const templateConfigPath = path.join(configDir, '../pz/App模板配置.json');
-        if (existsSync(templateConfigPath)) {
-            const templateContent = readFileSync(templateConfigPath, 'utf-8');
-            const templateConfig = JSON.parse(templateContent);
-            sites = Object.entries(templateConfig).filter(([key]) => valid_files.includes(`${key}[模板].js`))
-                .flatMap(([key, config]) =>
-                    Object.entries(config)
-                       // .filter(([name]) => name !== "示例")
-                        .filter(([name]) => {  return !/^(说明|示例)$/.test(name)})
-                        .map(([name]) => ({
+    //  const templateConfigPath = path.join(jsonDir, './App模板配置.json');
+    const templateConfigPath = path.join(configDir, '../pz/App模板配置.json');
+    if (existsSync(templateConfigPath)) {
+        const templateContent = readFileSync(templateConfigPath, 'utf-8');
+        const templateConfig = JSON.parse(templateContent);
+        sites = Object.entries(templateConfig).filter(([key]) => valid_files.includes(`${key}[模板].js`))
+            .flatMap(([key, config]) =>
+                Object.entries(config)
+                    // .filter(([name]) => name !== "示例")
+                    .filter(([name]) => { return !/^(说明|示例)$/.test(name) })
+                    .map(([name]) => {
+                        // 判断key是否包含'App'，决定是否添加[M]
+                        const processedKey = key.includes('App') ? 'M' : key.replace('App', '');
+                        return {
                             key: `drpyS_${name}_${key}`,
-                            name: `${name}[M](${key.replace('App', '').toUpperCase()})`,
+                            name: `${name}[${processedKey}]`, // 这里是修改后的逻辑
                             type: 4,
                             api: `${requestHost}/api/${key}[模板]${pwd ? `?pwd=${pwd}` : ''}`,
                             searchable: 1,
                             filterable: 1,
                             quickSearch: 0,
-                           // ext: `../json/App模板配置.json$${name}`
-                            ext: jsEncoder.gzip(`道长天下第一$${name}`) // 压缩ext
-                        })));
-        }
-    } catch (e) {
-        console.error('读取App模板配置失败:', e.message);
+                            // ext: `../json/App模板配置.json$${name}`
+                            ext: jsEncoder.gzip(`优雅永不过时$${name}`) // 压缩ext
+                        }
+                    }));
     }
+} catch (e) {
+    console.error('读取App模板配置失败:', e.message);
+}
+
     //以上为自定义APP[模板]配置自动添加代码
 
     let link_jar = '';
@@ -95,6 +100,7 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
     let SitesMap = getSitesMap(configDir);
     // console.log(SitesMap);
     log(`开始生成ds的t4配置，jsDir:${jsDir},源数量: ${valid_files.length}`);
+
     const tasks = valid_files.map((file) => {
         return {
             func: async ({file, jsDir, requestHost, pwd, drpy, SitesMap, jsEncoder}) => {
@@ -176,7 +182,6 @@ async function generateSiteJSON(options, requestHost, sub, pwd) {
             id: file,
         };
     });
-
     const listener = {
         func: (param, id, error, result) => {
             if (error) {
@@ -490,6 +495,11 @@ if (newName.includes('[听]')) {
           .replace(/哔哩大全\[官\]/g, '大全[哔哩]')
           .replace(/哔哩教育\[官\]/g, '教育[哔哩]');
     }
+    if (newName.match(/盘Ta/)) {
+        newName = newName
+          .replace(/盘它\[盘Ta\]/g, '盘它[移动]')
+          .replace(/雷鲸\[盘Ta\]/g, '雷鲸[天翼]');
+    }
         newName = newName
           .replace(/push/g, '手机[推送]');
     
@@ -513,7 +523,7 @@ if (newName.includes('[听]')) {
     "[分享]": "🗂️",
     "[夸克]": "🟣",
     "[派储]": "🔷",
-    "[盘]": "🔵",
+    "[盘类]": "🔵",
     "[APP]": "🔶",
     "[优]": "❤️",
     "金牌": "❤️",
@@ -617,7 +627,7 @@ for (let key in emojiMap) {
         break;
     }
 }
-    //console.log(`重组前: baseName=${baseName}, tsName=${tsName}, addedEmoji=${addedEmoji}`);
+   // console.log(`重组前: baseName=${baseName}, tsName=${tsName}, addedEmoji=${addedEmoji}`);
 
   if (addedEmoji) {
    // site.name = addedEmoji + baseName +'┃'+ tsName + result; // 更新 site.name
@@ -717,7 +727,7 @@ function customSort(a, b) {
     function shouldExclude(s) {
     const kws = [
         'Appg', 'Apps', 'Appm','Appr','Appv','Appc','Appt',
-       'uuu','密',
+      '模板', 'uuu','密',
     ];
     return kws.some(kw => s.name.toLowerCase().includes(kw.toLowerCase()));
 }
@@ -834,16 +844,28 @@ async function generateParseJSON(jxDir, requestHost) {
         param: {}, // 外部参数可以在这里传入
     };
     await batchExecute(tasks, listener);
+    let filtered_parses = parses.filter(item => 
+  /(包含|虾米|4k|1080)/i.test(item.name) && !/(不包含|优雅)/i.test(item.name)
+);
+
+
+    let sorted_parses = naturalSort(filtered_parses, 'name', ['1080']);
+    parses = sorted_parses;
+
+  //  parses = filtered_parses;
+   return {parses};
+   /*
     let sorted_parses = naturalSort(parses, 'name', ['JSON并发', 'JSON合集', '虾米', '奇奇']);
     let sorted_jx_dict = naturalSort(jx_dict, 'name', ['J', 'W']);
     parses = sorted_parses.concat(sorted_jx_dict);
     return {parses};
+    */
 }
 
 function generateLivesJSON(configDir, requestHost) {
     let noticeSites = [];
     let filePath = path.join(configDir, '../pz/live.json');
-    let liveConfig; // 补充变量声明（原代码漏了）
+    let liveConfig; 
 
     try {
         liveConfig = JSON.parse(readFileSync(filePath, 'utf-8'));
