@@ -1,0 +1,348 @@
+/*
+@header({
+  lang: 'ds'
+})
+*/
+const { readFileSync } = require('fs');
+const { requestJson } = $.require('./_lib.request.js');
+const { formatPlayUrl } = misc;
+
+let _name = '';
+let _shaix = '';
+let config = {};
+let DOMAIN_CFG_PATH = './pz/Domain.json';
+let TOKEN_CFG_PATH = './pz/tokenm.json';
+let paix = ['天翼', '123', '移动', '夸克', '优汐', '阿里'];
+let original = { '夸克': false, '阿里': true, '优汐': true, '移动': true, '天翼': true, '123': true };
+const cache = {
+    classParse: {
+        cache: {},
+        cacheDuration: 30 * 24 * 60 * 60 * 1000,
+        isCacheValid(key) {
+            return this.cache[key] && this.cache[key].timestamp > Date.now() - this.cacheDuration;
+        }
+    }
+};
+
+const rule = {
+    title: '盘类[模版]',
+    host: '',
+    url: '',
+    searchUrl: '*',
+    headers: { "User-Agent": "PC_UA", 'Accept': 'text/html; charset=utf-8' },
+    timeout: 10000,
+    play_parse: true,
+    double: false,
+    searchable: 1,
+    quickSearch: 1,
+
+    hostJs: async function() {
+        try {
+            if (rule.params) rule.params = ungzip(rule.params);
+        } catch (e) {
+            console.log(`[hostJs] ungzip解密失败: ${e.message}`);
+        }
+        log(`✅rule.params的结果: ${rule.params}`);
+        
+        let _host = rule.params.split('$')[0];
+        if (!/^https?:\/\//i.test(_host)) {
+            console.warn(`⚠️ _host 不是域名`);
+        }
+        _name = rule.params.split('$')[1] || '默认';
+        _shaix = `./筛选/${_name}.json`;
+        console.log(`✅_host: ${_host}, _name: ${_name}`);
+
+        try {
+            const tokenConfig = JSON.parse(readFileSync(TOKEN_CFG_PATH, 'utf-8'));
+            Object.assign(config, tokenConfig);
+            console.log(`✅ ${_name}配置ck加载成功`);
+        } catch (e) {
+            console.error(`❌ ${_name}读取ck失败: ${e.message}`);
+            config = {};
+        }
+
+        let originalHosts = _host;
+        try {
+            const domainConfig = JSON.parse(readFileSync(DOMAIN_CFG_PATH, 'utf-8'));
+            originalHosts = domainConfig[_name];
+            console.log(`✅ ${_name}域名配置加载成功，共${originalHosts.length}个`);
+        } catch (e) {
+            console.error(`❌ ${_name}域名配置读取失败: ${e.message}`);
+        }
+
+        if (!Array.isArray(originalHosts) || originalHosts.length === 0) {
+            console.error(`❌ ${_name}无有效域名，用默认`);
+            return _host;
+        }
+        console.log(`🔍 开始检测${originalHosts.length}个域名`);
+        const checkDomain = url => new Promise(resolve => {
+            const protocol = url.startsWith('https') ? require('https') : require('http');
+            const start = Date.now();
+            const req = protocol.get(url, { timeout: 4000 }, res => {
+                const speed = Date.now() - start;
+                const valid = res.statusCode >= 200 && res.statusCode < 400;
+                console.log(`${valid ? '✅' : '❌'} ${url} (${speed}ms, 状态: ${res.statusCode})`);
+                req.destroy();
+                resolve({ url, speed, valid });
+            }).on('error', err => resolve({ url, speed: Infinity, valid: false }))
+              .on('timeout', () => { req.destroy(); resolve({ url, speed: 4000, valid: false }); });
+        });
+        const results = await Promise.all(originalHosts.map(checkDomain));
+        const valid = results.filter(x => x.valid).sort((a, b) => a.speed - b.speed);
+        
+        return valid.length ? (console.log(`✅ 最终用域名：${valid[0].url}`), valid[0].url) : 
+                              (console.log(`⚠️ 用默认域名：${_host}`), _host);
+    },
+
+    class_parse: async function() {
+        const { input, MY_CATE } = this;
+        const cacheKey = `${input}_${MY_CATE || 'default'}`;
+        _shaix = `./筛选/${_name}.json`;
+
+        try {
+            const rawData = readFileSync(_shaix, 'utf-8');
+            const { class: fileClasses, filters: fileFilters } = JSON.parse(rawData);
+            if (Array.isArray(fileClasses) && Object.keys(fileFilters).length > 0) {
+                console.log(`✅ ${_name}加载本地分类配置`);
+                cache.classParse.cache[cacheKey] = { class: fileClasses, filters: fileFilters, timestamp: Date.now() };
+                return { class: fileClasses, filters: fileFilters };
+            }
+        } catch (e) {
+            console.log(`⚠️ ${_name}本地分类加载失败: ${e.message}`);
+        }
+        console.log(`✅ ${_name}分类解析完成`);
+        return { class: [], filters: {} };
+    },
+
+    推荐: async function() {
+        let { input, pdfa, pdfh, pd } = this;
+        console.log(`🔍 请求推荐页: ${input}`);
+        
+        let html = await request(input);
+        let d = [];
+        pdfa(html, '.module-items .module-item').forEach(it => {
+            let title = pdfh(it, 'a&&title');
+            let desc = pdfh(it, '.module-item-text&&Text');
+            if (!title.includes('虎斑') && !desc.includes('虎斑')) {
+                d.push({ title, pic_url: pd(it, 'img&&data-src'), desc, url: pd(it, 'a&&href') });
+            }
+        });
+        console.log(`✅ 推荐页解析完成`);
+        return setResult(d);
+    },
+
+    一级: async function() {
+        let { input, pdfa, pdfh, pd, MY_CATE, MY_FL, MY_PAGE, host } = this;
+        console.log(`🔍 请求一级页: ${input}`);
+        
+        let d = [], fl = MY_FL, pg = MY_PAGE, type = fl.cateId || MY_CATE;
+        const url1 = `${host}/vodshow/${type}-${fl.area || ''}-${fl.by || 'time'}-${fl.class || ''}--${fl.letter || ''}---${pg}---${fl.year || ''}.html`;
+        const url2 = `${host}/index.php/vod/show/${[fl.area && `area/${fl.area}`, fl.by && `by/${fl.by}`].filter(Boolean).join('/')}/page/${pg}.html`;
+        let [html1, html2] = await Promise.all([request(url1), request(url2)]);
+        let html = html1.includes('module') ? html1 : (html2.includes('module') ? html2 : null);
+        let selectedUrl = html1.includes('module') ? url1 : (html2.includes('module') ? url2 : null);
+        console.log(`✅ 选择URL: ${selectedUrl || '无有效'}`);
+
+        if (html) {
+            pdfa(html, '.module-items .module-item').forEach(it => {
+                let title = pdfh(it, 'a&&title'), desc = pdfh(it, '.module-item-text&&Text');
+                if (!title.includes('虎斑') && !desc.includes('虎斑')) {
+                    d.push({ title, pic_url: pd(it, 'img&&data-src'), desc, url: pd(it, 'a&&href') });
+                }
+            });
+        }
+        console.log(`✅ 一级页解析完成`);
+        return setResult(d);
+    },
+
+    搜索: async function(wd, quick, pg) {
+        let { host } = this;
+        const url1 = `${host}/vodsearch/${wd}----------${pg}---.html`;
+        const url2 = `${host}/index.php/vod/search/page/${pg}/wd/${wd}.html`;
+        let [html1, html2] = await Promise.all([request(url1), request(url2)]);
+        let html = html1.includes('module') ? html1 : (html2.includes('module') ? html2 : '');
+        let selectedUrl = html1.includes('module') ? url1 : (html2.includes('module') ? url2 : null);
+        console.log(`✅ 选择搜索URL: ${selectedUrl || '无有效'}`);
+
+        let d = [];
+        pdfa(html, '.module-items .module-search-item').forEach(it => {
+            let title = pdfh(it, '.video-info&&a&&title');
+            if (!title.includes('排除关键词')) {
+                d.push({ title, pic_url: pd(it, 'img&&data-src'), desc: pdfh(it, '.video-text&&Text'), url: pd(it, '.video-info&&a&&href') });
+            }
+        });
+        return setResult(d);
+    },
+
+    二级: async function(ids) {
+        const { input } = this;
+        console.log(`🔍 请求二级页: ${input}`);
+        
+        const html = await request(input), $ = pq(html);
+        const VOD = {
+            vod_name: pdfh(html, '.video-info&&h1&&Text'),
+            type_name: pdfh(html, '.tag-link&&Text'),
+            vod_pic: pd(html, '.lazyload&&data-original||data-src||src'),
+            vod_content: pdfh(html, '.sqjj_a--span&&Text'),
+            vod_remarks: pdfh(html, '.video-info-items:eq(3)&&Text')
+        };
+
+        const playform = [], playurls = [], playPans = [];
+        const EXCLUDE_LINKS = ['pan.quark.cn/s/409afef6d77c', 'drive.uc.cn/s/3544ba9f8ac64'];
+        const data = pdfa(html, '.module-row-title');
+
+        const diskHandlers = {
+            '夸克': { test: /pan.quark/, handler: async link => {
+                const shareData = await Quark.getShareData(link);
+                if (shareData && Object.keys(shareData).length) {
+                    const videos = await Quark.getFilesByShareUrl(shareData);
+                    if (videos.length) {
+                        playform.push(`夸克-${shareData.shareId}`);
+                        playurls.push(videos.map(v => `${v.file_name}$${[shareData.shareId, v.stoken, v.fid, v.share_fid_token].join('*')}`).join('#'));
+                    } else console.log(`❌ 夸克无有效视频`);
+                } else console.log(`❌ 夸克链接失效: ${link}`);
+            }},
+            '优汐': { test: /drive.uc/, handler: async link => {
+                const shareData = await UC.getShareData(link);
+                if (shareData && Object.keys(shareData).length) {
+                    const videos = await UC.getFilesByShareUrl(shareData);
+                    if (videos.length) {
+                        playform.push(`优汐-${shareData.shareId}`);
+                        playurls.push(videos.map(v => `${v.file_name}$${[shareData.shareId, v.stoken, v.fid, v.share_fid_token].join('*')}`).join('#'));
+                    } else console.log(`❌ 优汐无有效视频`);
+                } else console.log(`❌ 优汐链接失效: ${link}`);
+            }},
+            '阿里': { test: /alipan|aliyundrive/, handler: async link => {
+                const shareData = await Ali.getShareData(link);
+                if (shareData && Object.keys(shareData).length) {
+                    const videos = await Ali.getFilesByShareUrl(shareData);
+                    if (videos.length) {
+                        playform.push(`阿里-${shareData.shareId}`);
+                        playurls.push(videos.map(v => `${formatPlayUrl('', v.name)}$${[v.share_id, v.file_id].join('*')}`).join('#'));
+                    } else console.log(`❌ 阿里无有效视频`);
+                } else console.log(`❌ 阿里链接失效: ${link}`);
+            }},
+            '移动': { test: /yun.139/, handler: async link => {
+                const data = await Yun.getShareData(link);
+                if (data && Object.keys(data).length) {
+                    Object.keys(data).forEach(it => {
+                        playform.push(`移动-${it}`);
+                        playurls.push(data[it].map(item => `${item.name}$${[item.contentId, item.linkID].join('*')}`).join('#'));
+                    });
+                } else console.log(`❌ 移动链接失效: ${link}`);
+            }},
+            '天翼': { test: /cloud.189/, handler: async link => {
+                const data = await Cloud.getShareData(link);
+                if (data && Object.keys(data).length) {
+                    Object.keys(data).forEach(it => {
+                        playform.push(`天翼-${it}`);
+                        playurls.push(data[it].map(item => `${item.name}$${[item.fileId, item.shareId].join('*')}`).join('#'));
+                    });
+                } else console.log(`❌ 天翼链接失效: ${link}`);
+            }},
+            '123': { test: /www.123/i, handler: async link => {
+                const shareData = await Pan.getShareData(link);
+                if (shareData && Object.keys(shareData).length) {
+                    const videos = await Pan.getFilesByShareUrl(shareData);
+                    Object.keys(videos).forEach(it => {
+                        playform.push(`123-${it}`);
+                        playurls.push(videos[it].map(v => `${v.FileName}$${[v.ShareKey, v.FileId, v.S3KeyFlag, v.Size, v.Etag].join('*')}`).join('#'));
+                    });
+                } else console.log(`❌ 123链接失效: ${link}`);
+            }}
+        };
+
+        for (const item of data) {
+            const link = $(item).find('p:first')[0].children[0].data.trim().replace(/\s+/g, '');
+            if (EXCLUDE_LINKS.some(exclude => link.includes(exclude))) {
+                console.log(`⚠️ 排除链接: ${link}`);
+                continue;
+            }
+            playPans.push(link);
+            let handled = false;
+            for (const [diskName, { test, handler }] of Object.entries(diskHandlers)) {
+                if (test.test(link)) {
+                    await handler(link);
+                    handled = true;
+                    break;
+                }
+            }
+            if (!handled) console.log(`⚠️ 未知链接: ${link}`);
+        }
+
+        let processedLines = playform.map((line, index) => ({ raw: line, sortKey: line.split('-')[0], index }));
+        processedLines.sort((a, b) => {
+            const aIdx = paix.indexOf(a.sortKey);
+            const bIdx = paix.indexOf(b.sortKey);
+            return (aIdx === -1 ? 9999 : aIdx) - (bIdx === -1 ? 9999 : bIdx);
+        });
+
+        VOD.vod_play_from = processedLines.map(item => item.raw).join("$$$");
+        VOD.vod_play_url = processedLines.map(item => playurls[item.index]).join("$$$");
+        VOD.vod_play_pan = playPans.join("$$$");
+        console.log(`✅ 二级页解析完成`);
+        return VOD;
+    },
+
+    lazy: async function(flag, id, flags) {
+        let { input } = this;
+        const ids = input.split('*'), urls = [];
+        const threadParam = rule.threadParam, showOriginal = rule.showOriginal || original;
+        console.log(`🔍 解析网盘链接: ${flag}`);
+
+        const diskHandlers = {
+            '夸克': async () => {
+                const down = await Quark.getDownload(ids[0], ids[1], ids[2], ids[3], true);
+                if (showOriginal['夸克']) urls.push("原画", `${down.download_url}`);
+                urls.push("原代本", `http://127.0.0.1:7777/?${threadParam}&form=urlcode&randUa=1&url=${encodeURIComponent(down.download_url)}`);
+                (await Quark.getLiveTranscoding(ids[0], ids[1], ids[2], ids[3])).filter(t => t.accessable).forEach(t => {
+                    const res = t.resolution === 'low' ? "流畅" : t.resolution === 'normal' ? "清晰" : t.resolution === 'high' ? "高清" : t.resolution === 'super' ? "超清" : "HDR";
+                    urls.push(res, `${t.video_info.url}`);
+                });
+                return {
+                    parse: 0,
+                    url: urls,
+                    header: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0.0.0 Safari/537.36', 'origin': 'https://pan.quark.cn', 'referer': 'https://pan.quark.cn/', 'Cookie': Quark.cookie }
+                };
+            },
+            '优汐': async () => {
+                const down = await UC.getDownload(ids[0], ids[1], ids[2], ids[3], true);
+                if (showOriginal['优汐']) urls.push("通用原画", `http://127.0.0.1:5575/proxy?${threadParam}&chunkSize=32&poolSize=128&url=${encodeURIComponent(down.url)}`);
+                down.forEach(t => {
+                    const res = t.name === 'low' ? "流畅" : t.name === 'high' ? "高清" : t.name === 'super' ? "超清" : "HDR";
+                    urls.push(res, `${t.url}`);
+                });
+                return { parse: 0, url: urls };
+            },
+            '阿里': async () => {
+                const transcoding_flag = { UHD: "4K 超清", QHD: "2K 超清", FHD: "1080 全高清", HD: "720 高清", SD: "540 标清", LD: "360 流畅" };
+                const down = await Ali.getDownload(ids[0], ids[1], flag === 'down');
+                if (showOriginal['阿里']) urls.push("极速原画", `${down.url}&${threadParam}`);
+                (await Ali.getLiveTranscoding(ids[0], ids[1])).sort((a, b) => b.template_width - a.template_width).forEach(t => {
+                    urls.push(transcoding_flag[t.template_id], `${t.url}&${threadParam}`);
+                });
+                return { parse: 0, url: urls, header: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0.0.0 Safari/537.36', 'Referer': 'https://www.aliyundrive.com/' } };
+            },
+            '移动': async () => {
+                const url = await Yun.getSharePlay(ids[0], ids[1]);
+                return { url: `${url}&${threadParam}` };
+            },
+            '天翼': async () => {
+                const url = await Cloud.getShareUrl(ids[0], ids[1]);
+                return { url: `${url}&${threadParam}` };
+            },
+            '123': async () => {
+                const url = await Pan.getDownload(ids[0], ids[1], ids[2], ids[3], ids[4]);
+                if (showOriginal['123']) urls.push("原画", url);
+                (await Pan.getLiveTranscoding(ids[0], ids[1], ids[2], ids[3], ids[4])).forEach(item => {
+                    urls.push(item.name, `${item.url}&${threadParam}`);
+                });
+                return { parse: 0, url: urls };
+            }
+        };
+
+        for (const [prefix, handler] of Object.entries(diskHandlers)) {
+            if (flag.startsWith(prefix)) return await handler();
+        }
+    }
+};
