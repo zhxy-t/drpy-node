@@ -7,11 +7,16 @@ const { readFileSync } = require('fs');
 const { requestJson } = $.require('./_lib.request.js');
 const { formatPlayUrl } = misc;
 
-let _name = '';
-let _shaix = '';
+let rule._name = '';
+let rule._shaix = '';
 let config = {};
-let DOMAIN_CFG_PATH = './pz/Domain.json';
-let TOKEN_CFG_PATH = './pz/tokenm.json';
+
+let Do_Path = './pz/Domain.json';
+let Do_Data = JSON.parse(readFileSync(Do_Path, 'utf-8'));
+
+let Tk_Path = './pz/tokenm.json';
+let Tk_Data = JSON.parse(readFileSync(Tk_Path, 'utf-8'));
+
 let paix = ['天翼', '123', '移动', '夸克', '优汐', '阿里'];
 let original = { '夸克': false, '阿里': true, '优汐': true, '移动': true, '天翼': true, '123': true };
 const cache = {
@@ -42,36 +47,35 @@ const rule = {
         } catch (e) {
             console.log(`[hostJs] ungzip解密失败: ${e.message}`);
         }
-        log(`✅rule.params的结果: ${rule.params}`);
         
         let _host = rule.params.split('$')[0];
         if (!/^https?:\/\//i.test(_host)) {
             console.warn(`⚠️ _host 不是域名`);
         }
-        _name = rule.params.split('$')[1] || '默认';
-        _shaix = `./筛选/${_name}.json`;
-        console.log(`✅_host: ${_host}, _name: ${_name}`);
+        rule._name = rule.params.split('$')[1] || '默认';
+        rule._shaix = `../筛选/${rule._name}.json`;
+        console.log(`✅_host: ${_host}, rule._name: ${rule._name}`);
 
         try {
-            const tokenConfig = JSON.parse(readFileSync(TOKEN_CFG_PATH, 'utf-8'));
+            const tokenConfig = Tk_Data ;
             Object.assign(config, tokenConfig);
-            console.log(`✅ ${_name}配置ck加载成功`);
+            console.log(`✅ ${rule._name}配置ck加载成功`);
         } catch (e) {
-            console.error(`❌ ${_name}读取ck失败: ${e.message}`);
+            console.error(`❌ ${rule._name}读取ck失败: ${e.message}`);
             config = {};
         }
 
         let originalHosts = _host;
         try {
-            const domainConfig = JSON.parse(readFileSync(DOMAIN_CFG_PATH, 'utf-8'));
-            originalHosts = domainConfig[_name];
-            console.log(`✅ ${_name}域名配置加载成功，共${originalHosts.length}个`);
+            const domainConfig = Do_Data ;
+            originalHosts = domainConfig[rule._name];
+            console.log(`✅ ${rule._name}域名配置加载成功，共${originalHosts.length}个`);
         } catch (e) {
-            console.error(`❌ ${_name}域名配置读取失败: ${e.message}`);
+            console.error(`❌ ${rule._name}域名配置读取失败: ${e.message}`);
         }
 
         if (!Array.isArray(originalHosts) || originalHosts.length === 0) {
-            console.error(`❌ ${_name}无有效域名，用默认`);
+            console.error(`❌ ${rule._name}无有效域名，用默认`);
             return _host;
         }
         console.log(`🔍 开始检测${originalHosts.length}个域名`);
@@ -97,20 +101,19 @@ const rule = {
     class_parse: async function() {
         const { input, MY_CATE } = this;
         const cacheKey = `${input}_${MY_CATE || 'default'}`;
-        _shaix = `./筛选/${_name}.json`;
 
         try {
-            const rawData = readFileSync(_shaix, 'utf-8');
+            const rawData = readFileSync(rule._shaix, 'utf-8');
             const { class: fileClasses, filters: fileFilters } = JSON.parse(rawData);
             if (Array.isArray(fileClasses) && Object.keys(fileFilters).length > 0) {
-                console.log(`✅ ${_name}加载本地分类配置`);
+                console.log(`✅ ${rule._name}加载本地分类配置`);
                 cache.classParse.cache[cacheKey] = { class: fileClasses, filters: fileFilters, timestamp: Date.now() };
                 return { class: fileClasses, filters: fileFilters };
             }
         } catch (e) {
-            console.log(`⚠️ ${_name}本地分类加载失败: ${e.message}`);
+            console.log(`⚠️ ${rule._name}本地分类加载失败: ${e.message}`);
         }
-        console.log(`✅ ${_name}分类解析完成`);
+        console.log(`✅ ${rule._name}分类解析完成`);
         return { class: [], filters: {} };
     },
 
