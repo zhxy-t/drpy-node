@@ -257,9 +257,7 @@ class_parse: async function() {
         console.log(`[弹幕流程] 1.1 升级为HTTPS: ${proxyUrl}`);
     }
         let dmurl2 = `http://dm.qxq6.com/zy/api.php?url=${encodeURIComponent(input)}`;
-        if (!getProxyUrl().includes('127.0.0.1')) {
-        getProxyUrl() = getProxyUrl().replace('http', 'https');
-        }
+
         let danmu = proxyUrl + "&url=" + encodeURIComponent(dmurl2);
         
         return {
