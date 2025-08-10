@@ -26,6 +26,8 @@ var rule = {
         'Referer': 'https://www.youku.com',
     },
     timeout: 5000,
+    limit: 20,
+    play_parse: true,
   //  class_name: '电视剧&电影&综艺&动漫&少儿&纪录片&文化&亲子&教育&搞笑&生活&体育&音乐&游戏',
    // class_url: '电视剧&电影&综艺&动漫&少儿&纪录片&文化&亲子&教育&搞笑&生活&体育&音乐&游戏',
    
@@ -82,9 +84,6 @@ class_parse: async function() {
         filters: filters
     };
 },
-        
-    limit: 20,
-    play_parse: true,
     
     一级: async function () {
     let {
@@ -244,7 +243,9 @@ class_parse: async function() {
         let { getProxyUrl, input } = this;
         
         let dmurl2 = `http://dm.qxq6.com/zy/api.php?url=${encodeURIComponent(input)}`;
-        
+        if (!getProxyUrl().includes('127.0.0.1')) {
+        getProxyUrl() = getProxyUrl().replace('http', 'https');
+        }
         let danmu = getProxyUrl() + "&url=" + encodeURIComponent(dmurl2);
         
         return {
