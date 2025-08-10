@@ -209,15 +209,27 @@ lazy: async function () {
         let vid = ids[5].replace('.html', '');
         let cid = ids[4];
         console.log(`[弹幕流程] 1. 解析视频ID - vid: ${vid}, cid: ${cid}`); // 打印解析到的关键ID
-        
+        // 1. 获取代理URL并安全处理
+    let proxyUrl = getProxyUrl();
+    console.log(`[弹幕流程] 1. 原始代理URL: ${proxyUrl}`);
+    
+    // 判断是否本地地址（更全面的检查）
+    const isLocal = proxyUrl.includes('127.0.0.1') || 
+                   proxyUrl.includes('localhost') || 
+                   proxyUrl.includes('::1');
+    
+    // 非本地地址时升级为HTTPS
+    if (!isLocal) {
+        // 安全替换协议（只替换开头的http://）
+        proxyUrl = proxyUrl.replace(/^http:\/\//, 'https://');
+        console.log(`[弹幕流程] 1.1 升级为HTTPS: ${proxyUrl}`);
+    }
         // 生成原始弹幕URL
         let dmurl1 = `https://galaxy.bz.mgtv.com/getctlbarrage?vid=${vid}&cid=${cid}`;
         console.log(`[弹幕流程] 2. 生成原始弹幕接口URL: ${dmurl1}`); // 打印原始接口URL
-        if (!getProxyUrl().includes('127.0.0.1')) {
-        getProxyUrl() = getProxyUrl().replace('http', 'https');
-        }
+
         // 生成带代理的请求URL
-        let danmu = getProxyUrl() + "&url=" + encodeURIComponent(dmurl1);
+        let danmu = proxyUrl + "&url=" + encodeURIComponent(dmurl1);
         console.log(`[弹幕流程] 3. 生成代理弹幕请求URL: ${danmu}`); // 打印代理请求URL
         
         return {

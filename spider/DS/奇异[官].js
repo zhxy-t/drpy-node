@@ -196,26 +196,40 @@ var rule = {
         });
         return setResult(d);
     },
-lazy: async function () {
-        let { getProxyUrl, input } = this;
-        
-        let dmurl2 = `http://dm.qxq6.com/zy/api.php?url=${encodeURIComponent(input)}`;
-        console.log(`[弹幕流程] 2. 生成原始弹幕URL: ${dmurl2}`);
-        
-        if (!getProxyUrl().includes('127.0.0.1')) {
-        getProxyUrl() = getProxyUrl().replace('http', 'https');
-        }
-        let danmu = getProxyUrl() + "&url=" + encodeURIComponent(dmurl2);
-        console.log(`[弹幕流程] 3. 生成带代理的弹幕请求URL: ${danmu}`);
-        
-        
-        return {
-            parse: 1,
-            url: input,
-            jx: 1,
-            danmaku: danmu
-        };
-    },
+    lazy: async function () {
+    let { getProxyUrl, input } = this;
+    
+    // 1. 获取代理URL并安全处理
+    let proxyUrl = getProxyUrl();
+    console.log(`[弹幕流程] 1. 原始代理URL: ${proxyUrl}`);
+    
+    // 判断是否本地地址（更全面的检查）
+    const isLocal = proxyUrl.includes('127.0.0.1') || 
+                   proxyUrl.includes('localhost') || 
+                   proxyUrl.includes('::1');
+    
+    // 非本地地址时升级为HTTPS
+    if (!isLocal) {
+        // 安全替换协议（只替换开头的http://）
+        proxyUrl = proxyUrl.replace(/^http:\/\//, 'https://');
+        console.log(`[弹幕流程] 1.1 升级为HTTPS: ${proxyUrl}`);
+    }
+    
+    // 2. 生成原始弹幕URL
+    let dmurl2 = `http://dm.qxq6.com/zy/api.php?url=${encodeURIComponent(input)}`;
+    console.log(`[弹幕流程] 2. 生成原始弹幕URL: ${dmurl2}`);
+    
+    // 3. 生成带代理的弹幕请求URL
+    let danmu = proxyUrl + "&url=" + encodeURIComponent(dmurl2);
+    console.log(`[弹幕流程] 3. 生成带代理的弹幕请求URL: ${danmu}`);
+    
+    return {
+        parse: 1,
+        url: input,
+        jx: 1,
+        danmaku: danmu
+    };
+},
     
     // 使用弹幕代理模块中的规则
     proxy_rule: danmuProxy.proxy_rule
