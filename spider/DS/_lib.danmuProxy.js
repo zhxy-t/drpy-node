@@ -11,10 +11,17 @@ async function proxy_rule(params) {
         if (!targetUrl) {
             throw new Error('解析后目标地址为空');
         }
-        console.log(`[弹幕流程] 开始代理请求 - 目标URL: ${targetUrl}`);
         
-        // 发送请求
-        let resp = await getHtml({ url: targetUrl });
+        // 新增协议替换逻辑（排除本地地址）
+        let rurl = targetUrl;
+        if (!targetUrl.includes('127.0.0.1')) {
+            rurl = targetUrl.replace('http', 'https');
+        }
+        
+        console.log(`[弹幕流程] 开始代理请求 - 目标URL: ${rurl}`);
+        
+        // 发送请求（使用替换后的URL）
+        let resp = await getHtml({ url: rurl });
         
         // 校验resp是否有效
         if (!resp || typeof resp !== 'object' || !('status' in resp)) {
