@@ -117,6 +117,7 @@ registerRoutes(fastify, {
     pyDir: path.join(__dirname, 'spider/DY'),
     viewsDir: path.join(__dirname, 'views'),
     configDir: path.join(__dirname, 'config'),
+    sxuanDir: path.join(__dirname, '筛选'),
     PORT,
     MAX_TEXT_SIZE,
     indexFilePath: path.join(__dirname, 'index.json'),
