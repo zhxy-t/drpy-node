@@ -169,7 +169,8 @@ pm2 restart drpys
 * [猫影视git文件加速](https://github.catvod.com/)
 * [猫影视多功能主页](https://catvod.com/)
 * [ZY写源教学](https://zy.catni.cn/editSource/edit-grammar.html)
-* [源动力](https://sourcepower.top/index)
+* [源动力-新](https://tvshare.cn/)
+* [源动力-老](https://sourcepower.top/index)
 
 ## AI接入
 
