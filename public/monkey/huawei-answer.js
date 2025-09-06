@@ -1,22 +1,47 @@
 function extractExamContentWithNumbers() {
     const examContents = document.querySelectorAll('.exam-content');
     let allText = '';
+    const totalQuestions = examContents.length;
 
     examContents.forEach((content, index) => {
         const questionNumber = index + 1;
         let questionType = '';
 
-        // 根据题号确定题型
-        if (questionNumber >= 1 && questionNumber <= 5) {
-            questionType = '判断题';
-        } else if (questionNumber >= 6 && questionNumber <= 15) {
-            questionType = '单选题';
-        } else if (questionNumber >= 16 && questionNumber <= 24) {
-            questionType = '多选题';
+        // 根据题目总数确定题型分配规则
+        if (totalQuestions === 24) {
+            // 24题模式：5道判断+10道单选+9道多选
+            if (questionNumber >= 1 && questionNumber <= 5) {
+                questionType = '判断题';
+            } else if (questionNumber >= 6 && questionNumber <= 15) {
+                questionType = '单选题';
+            } else if (questionNumber >= 16 && questionNumber <= 24) {
+                questionType = '多选题';
+            }
+        } else if (totalQuestions === 50) {
+            // 50题模式：15道判断+20道单选+15道多选
+            if (questionNumber >= 1 && questionNumber <= 15) {
+                questionType = '判断题';
+            } else if (questionNumber >= 16 && questionNumber <= 35) {
+                questionType = '单选题';
+            } else if (questionNumber >= 36 && questionNumber <= 50) {
+                questionType = '多选题';
+            }
+        } else {
+            // 其他情况，尝试根据选项类型自动判断
+            const radioGroup = content.querySelector('.el-radio-group');
+            const checkboxGroup = content.querySelector('.el-checkbox-group');
+            
+            if (radioGroup) {
+                questionType = '单选题';
+            } else if (checkboxGroup) {
+                questionType = '多选题';
+            } else {
+                questionType = '判断题';
+            }
         }
 
         // 添加题序标题
-        const titleText = `${questionNumber}/24 Q ${questionType}`;
+        const titleText = `${questionNumber}/${totalQuestions} Q ${questionType}`;
 
         // 提取问题文本
         const questionElement = content.querySelector('.the-exam-page-html');
