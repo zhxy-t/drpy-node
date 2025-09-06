@@ -22,8 +22,8 @@ nodejs作为服务端的drpy实现。全面升级异步写法
 * [drpy2打包项目](https://github.com/hjdhnx/drpy-webpack)
 * [本站防止爬虫协议](/robots.txt)
 * [油猴脚本-反切屏检测](/public/monkey/check_screen_leave.user.js)
-* [油猴脚本-智能剪切板推送](/public/monkey/clipboard-sender.user.js)
-* [油猴脚本-智能剪切板推送自定义指令集](/public/monkey/自定义指令集-道长.json)
+* [油猴脚本-通用网页脚本框架](/public/monkey/clipboard-sender.user.js)
+* [油猴脚本-通用网页脚本框架自定义指令集](/public/monkey/自定义指令集-道长.json)
 
 -------------------------
 

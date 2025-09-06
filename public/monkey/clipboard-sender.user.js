@@ -326,18 +326,90 @@
 
         function ensure() {
             if (el) return;
+            
+            // 检测是否为移动端设备
+            const isMobile = /Android|iPhone|SymbianOS|Windows Phone|iPad|iPod/i.test(navigator.userAgent);
+            
+            // 计算日志窗口的最大宽度：按钮宽度 * 总列数(5)
+            const loggerMaxWidth = CONFIG.columnWidth * 5; // 70 * 5 = 350px
+            
+            let loggerStyle;
+            if (isMobile) {
+                // 移动端：日志窗体在隐藏日志按钮上方
+                const hideLogBtn = buttonMap.get('toggle-log');
+                let left = CONFIG.baseLeft + getLayoutOffset();
+                
+                // 计算合适的日志窗口高度，确保不超出屏幕顶部
+                const viewportHeight = window.innerHeight;
+                let maxLoggerHeight = Math.min(285, viewportHeight * 0.4); // 最大不超过视窗高度的40%
+                let top = CONFIG.buttonTop - maxLoggerHeight - 10; // 日志窗体高度 + 10px间距
+                
+                // 如果隐藏日志按钮已存在，根据其位置动态调整
+                if (hideLogBtn) {
+                    const btnRect = hideLogBtn.getBoundingClientRect();
+                    left = btnRect.left;
+                    top = btnRect.top - maxLoggerHeight - 10;
+                }
+                
+                // 确保不超出视窗顶部，留出至少10px边距
+                if (top < 10) {
+                    top = 10;
+                    // 如果顶部空间不足，重新计算高度
+                    const availableHeight = (hideLogBtn ? hideLogBtn.getBoundingClientRect().top : CONFIG.buttonTop) - 20;
+                    if (availableHeight > 100) {
+                        maxLoggerHeight = Math.min(maxLoggerHeight, availableHeight);
+                    }
+                }
+                
+                loggerStyle = {
+                    position: 'fixed', 
+                    left: left + 'px',
+                    top: top + 'px', 
+                    minWidth: '220px', 
+                    maxWidth: Math.min(loggerMaxWidth, window.innerWidth - 10) + 'px', // 移动端：5个按钮宽度或屏幕宽度-10px
+                    maxHeight: maxLoggerHeight + 'px',
+                    overflow: 'auto', 
+                    fontFamily: 'Helvetica,Arial,sans-serif', 
+                    fontSize: '12px',
+                    fontWeight: 'bold', 
+                    padding: '6px', 
+                    background: 'var(--tmx-bg)', 
+                    color: 'var(--tmx-fg)',
+                    border: '1px solid #aaa', 
+                    zIndex: 2147483640, // 降低层级，确保GroupPopup在上方 
+                    opacity: 0.9,
+                    wordWrap: 'break-word', 
+                    whiteSpace: 'pre-wrap'
+                };
+            } else {
+                // PC端：保持原有位置（最后一列按钮右边）
+                loggerStyle = {
+                    position: 'fixed', 
+                    left: (CONFIG.baseLeft + getLayoutOffset() + loggerMaxWidth) + 'px',
+                    top: (CONFIG.buttonTop + 3) + 'px', 
+                    minWidth: '220px', 
+                    maxWidth: loggerMaxWidth + 'px', // PC端使用计算出的最大宽度
+                    maxHeight: '285px',
+                    overflow: 'auto', 
+                    fontFamily: 'Helvetica,Arial,sans-serif', 
+                    fontSize: '12px',
+                    fontWeight: 'bold', 
+                    padding: '6px', 
+                    background: 'var(--tmx-bg)', 
+                    color: 'var(--tmx-fg)',
+                    border: '1px solid #aaa', 
+                    zIndex: 2147483646, 
+                    opacity: 0.9,
+                    wordWrap: 'break-word', 
+                    whiteSpace: 'pre-wrap'
+                };
+            }
+            
             el = h('div', {
                 id: 'tmx-logger',
-                style: {
-                    position: 'fixed', left: (CONFIG.baseLeft + getLayoutOffset() + 350) + 'px',
-                    top: (CONFIG.buttonTop + 3) + 'px', minWidth: '220px', maxWidth: '400px', maxHeight: '285px',
-                    overflow: 'auto', fontFamily: 'Helvetica,Arial,sans-serif', fontSize: '12px',
-                    fontWeight: 'bold', padding: '6px', background: 'var(--tmx-bg)', color: 'var(--tmx-fg)',
-                    border: '1px solid #aaa', zIndex: 2147483646, opacity: 0.9,
-                    wordWrap: 'break-word', whiteSpace: 'pre-wrap'
-                }
+                style: loggerStyle
             });
-            document.body.appendChild(el);
+              document.body.appendChild(el);
         }
 
         function hook() {
@@ -395,13 +467,16 @@
 
         function ensure() {
             if (root) return;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             root = h('div', {
                 id: 'tmx-toast',
                 style: {
                     position: 'fixed',
-                    right: '0',
-                    bottom: '0',
-                    width: '300px',
+                    right: '10px',
+                    bottom: '10px',
+                    minWidth: isMobile ? '200px' : '250px',
+                    maxWidth: isMobile ? '90vw' : '400px',
+                    width: 'auto',
                     border: '1px solid #aaa',
                     background: '#fff',
                     zIndex: 2147483645,
@@ -413,33 +488,61 @@
                     height: '36px',
                     lineHeight: '36px',
                     padding: '0 8px',
-                    position: 'relative',
                     color: 'var(--tmx-fg)',
                     background: 'var(--tmx-bg)',
-                    borderBottom: '1px solid #aaa'
+                    borderBottom: '1px solid #aaa',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                 }
             });
-            titleEl = h('b', {}, '通知');
-            const btns = h('span', { style: { position: 'absolute', top: '6px', right: '8px' } });
-            minBtn = h('a', { href: 'javascript:void 0', style: { marginRight: '12px', textDecoration: 'none' } }, '一');
-            const closeBtn = h('a', {
-                href: 'javascript:void 0',
+            titleEl = h('span', {}, '通知');
+            const btns = h('div', {
                 style: {
-                    textDecoration: 'none',
-                    fontWeight: 'bold',
-                    fontSize: '12px',
-                    cursor: 'pointer'
+                    display: 'flex',
+                    gap: '5px'
+                }
+            });
+            minBtn = h('button', {
+                style: {
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--tmx-fg)',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    borderRadius: '2px',
+                    lineHeight: '1'
+                }
+            }, '−');
+            const closeBtn = h('button', {
+                style: {
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--tmx-fg)',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                    borderRadius: '2px',
+                    lineHeight: '1'
                 }
             }, '×');
             btns.append(minBtn, closeBtn);
             header.append(titleEl, btns);
             content = h('div', {
                 style: {
-                    height: '160px',
+                    minHeight: '60px',
+                    maxHeight: isMobile ? '40vh' : '300px',
                     width: '100%',
                     overflow: 'auto',
-                    fontSize: '14px',
-                    padding: '8px'
+                    fontSize: '13px',
+                    fontWeight: 'normal',  // 确保文字不加粗
+                    padding: '8px',
+                    textAlign: 'left',
+                    background: '#fff',  // 设置内容区域背景色
+                    borderTop: '1px solid #eee',  // 添加顶部边框分隔线
+                    borderRight: '1px solid #eee'  // 添加右边框线条
                 }
             });
             root.append(header, content);
@@ -451,9 +554,15 @@
                     // 展开状态：恢复到右下角
                     content.style.display = '';
                     header.style.display = '';
-                    root.style.right = '0';
-                    root.style.bottom = '0';
-                    root.style.width = '300px';
+                    // 重置header的flex布局样式
+                    header.style.display = 'flex';
+                    header.style.justifyContent = 'space-between';
+                    header.style.alignItems = 'center';
+                    root.style.right = '10px';
+                    root.style.bottom = '10px';
+                    root.style.minWidth = isMobile ? '200px' : '250px';
+                    root.style.maxWidth = isMobile ? '90vw' : '400px';
+                    root.style.width = 'auto';
                     root.style.height = '';
                     root.style.padding = '';
                     root.style.borderRadius = '';
@@ -463,18 +572,35 @@
                     root.style.justifyContent = ''; // 清除flex属性
                     root.style.alignItems = '';    // 清除flex属性
                     root.style.boxSizing = '';
-                    // 清空最小化内容
-                    if (root.minimizedContent) {
-                        root.minimizedContent.remove();
-                        root.minimizedContent = null;
+                    root.style.background = '';    // 清除背景色
+                    root.style.color = '';         // 清除文字颜色
+                    root.style.cursor = '';        // 清除鼠标样式
+                    content.style.background = '#fff'; // 重置内容区域背景色
+                    content.style.borderTop = '1px solid #eee'; // 重置顶部边框
+                    content.style.borderRight = '1px solid #eee'; // 重置右边框
+                    content.style.fontWeight = 'normal'; // 重置字体粗细
+                    // 清空最小化内容 - 移除所有直接添加到root的子元素（除了header和content）
+                    const childrenToRemove = [];
+                    for (let child of root.children) {
+                        if (child !== header && child !== content) {
+                            childrenToRemove.push(child);
+                        }
+                    }
+                    childrenToRemove.forEach(child => child.remove());
+                    // 弹窗还原后重新计算调试代码容器位置
+                    if (window.DebugWindow && window.DebugWindow.updateMinimizedContainerPosition) {
+                        window.DebugWindow.updateMinimizedContainerPosition();
                     }
                 } else {
                     // 最小化状态：固定在最右下角，样式与调试窗口一致
                     content.style.display = 'none';
                     header.style.display = 'none';
+                    // 弹窗提示固定在底部
                     root.style.right = '10px';
-                    root.style.bottom = '10px';  // 往下移动，避免被调试窗口遮挡
+                    root.style.bottom = '10px';
                     root.style.width = '120px';  // 设置固定宽度
+                    root.style.minWidth = '';     // 清除最小宽度限制
+                    root.style.maxWidth = '';     // 清除最大宽度限制
                     root.style.height = '32px';  // 设置固定高度
                     root.style.padding = '8px 12px';  // 与调试窗口最小化项一致
                     root.style.borderRadius = '4px';  // 与调试窗口最小化项一致
@@ -482,14 +608,18 @@
                     root.style.fontSize = '12px';     // 与调试窗口最小化项一致
                     root.style.background = 'var(--tmx-bg)';  // 添加背景颜色，与全局皮肤色保持一致
                     root.style.color = 'var(--tmx-fg)';      // 添加文字颜色
-                    root.style.display = 'flex';      // 使用flex布局
+                    root.style.display = 'flex';      // 使用flex布局，与调试窗口一致
                     root.style.justifyContent = 'space-between'; // 与调试窗口布局一致
                     root.style.alignItems = 'center'; // 垂直居中
                     root.style.boxSizing = 'border-box'; // 确保padding包含在尺寸内
                     root.style.cursor = 'pointer';
 
                     // 创建最小化内容
-                    const minimizedTitle = h('span', {}, titleEl.textContent);
+                    const minimizedTitle = h('span', {
+                        style: {
+                            fontWeight: 'normal'  // 确保最小化标题文字不加粗
+                        }
+                    }, titleEl.textContent);
                     const minimizedCloseBtn = h('span', {
                         style: {
                             cursor: 'pointer',
@@ -502,23 +632,30 @@
                         }
                     }, '×');
 
-                    root.minimizedContent = h('div', {
-                        style: {
-                            display: 'flex',
-                            justifyContent: 'flex-start',
-                            alignItems: 'center',
-                            width: '100%'
+                    // 先清理可能存在的旧的最小化元素
+                    const childrenToRemove = [];
+                    for (let child of root.children) {
+                        if (child !== header && child !== content) {
+                            childrenToRemove.push(child);
                         }
-                    });
-                    root.minimizedContent.appendChild(minimizedTitle);
-                    root.minimizedContent.appendChild(minimizedCloseBtn);
-                    root.appendChild(root.minimizedContent);
+                    }
+                    childrenToRemove.forEach(child => child.remove());
+                    
+                    root.appendChild(minimizedTitle);
+                    root.appendChild(minimizedCloseBtn);
+                    
+                    // 弹窗最小化后重新计算调试代码容器位置
+                    if (window.DebugWindow && window.DebugWindow.updateMinimizedContainerPosition) {
+                        window.DebugWindow.updateMinimizedContainerPosition();
+                    }
+                    
+
                 }
             });
 
             // 点击最小化状态时展开
             root.addEventListener('click', (e) => {
-                if (!expanded && e.target === root) {
+                if (!expanded && (e.target === root || e.target === root.minimizedContent || e.target.tagName === 'SPAN' && e.target.textContent !== '×')) {
                     minBtn.click();
                 }
             });
@@ -541,11 +678,21 @@
             root.style.width = Math.max(220, ww) + 'px';
         }
 
+        function hide() {
+            if (root) {
+                root.remove();
+                root = null;
+                content = null;
+                titleEl = null;
+                minBtn = null;
+            }
+        }
+
         function applyTheme() {
             ensure();
         }
 
-        return { show, resize, applyTheme };
+        return { show, resize, hide, applyTheme };
     })();
 
     /** *************************** 按钮列 *********************************** */
@@ -595,6 +742,21 @@
         };
     }
 
+    /** *************************** Z-Index管理器 ******************************* */
+    const ZIndexManager = {
+        baseZIndex: 2147483647, // 最高基础层级
+        currentZIndex: 2147483647,
+        
+        getNextZIndex() {
+            return ++this.currentZIndex;
+        },
+        
+        // 确保元素在最上层
+        bringToTop(element) {
+            element.style.zIndex = this.getNextZIndex();
+        }
+    };
+
     /** *************************** 组弹窗（支持 toggle 按钮） **************** */
     class GroupPopup {
         constructor(title) {
@@ -606,19 +768,47 @@
                     inset: '0',
                     zIndex: 2147483645,
                     display: 'none',
-                    background: 'rgba(0,0,0,0)'
+                    background: 'rgba(0,0,0,0)',
+                    pointerEvents: 'none' // 允许点击穿透到下层
                 }
             });
-            // clicking overlay (but not panel) closes
-            this.overlay.addEventListener('click', (e) => {
-                if (e.target === this.overlay) this.hide();
-            });
+            // 添加关闭按钮到panel
+            const closeBtn = h('button', {
+                style: {
+                    position: 'absolute',
+                    top: '5px',
+                    right: '5px',
+                    width: '20px',
+                    height: '20px',
+                    border: 'none',
+                    background: '#ff6b6b',
+                    color: 'white',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    lineHeight: '1'
+                }
+            }, '×');
+            closeBtn.addEventListener('click', () => this.hide());
+            
+            // 为panel单独设置pointer-events
+            this.panelClickHandler = (e) => {
+                e.stopPropagation();
+            };
 
-            this.panel = h('div', {
+            // 创建固定定位的wrapper
+            this.panelWrapper = h('div', {
                 style: {
                     position: 'fixed',
                     top: CONFIG.popTop + 'px',
                     left: getLayoutOffset() + 'px',
+                    pointerEvents: 'auto'
+                }
+            });
+            
+            this.panel = h('div', {
+                style: {
+                    position: 'relative',
                     width: 'min(480px, calc(100vw - 20px))', // 5列按钮宽度，移动端不超出
                     padding: '10px 8px',
                     background: '#B2DFEE',
@@ -628,6 +818,11 @@
                     boxSizing: 'border-box'
                 }
             });
+            this.panel.addEventListener('click', this.panelClickHandler);
+            
+            // 添加关闭按钮到panel
+            this.panel.appendChild(closeBtn);
+            
             const titleBar = h('div', { style: { marginBottom: '6px', fontWeight: 'bold' } }, title);
             this.btnWrap = h('div', {
                 style: {
@@ -640,7 +835,8 @@
                 }
             });
             this.panel.append(titleBar, this.btnWrap);
-            this.overlay.append(this.panel);
+            this.panelWrapper.appendChild(this.panel);
+            this.overlay.append(this.panelWrapper);
             document.body.appendChild(this.overlay);
             this.visible = false;
         }
@@ -703,6 +899,8 @@
 
         show() {
             this.overlay.style.display = '';
+            // 确保当前弹窗在最上层
+            ZIndexManager.bringToTop(this.overlay);
             this.visible = true;
         }
 
@@ -723,8 +921,7 @@
         // 获取所有定时任务
         getAll() {
             try {
-                const data = localStorage.getItem(this.STORAGE_KEY);
-                return data ? JSON.parse(data) : [];
+                return store.get(this.STORAGE_KEY, []);
             } catch (e) {
                 console.error('获取定时任务失败:', e);
                 return [];
@@ -734,7 +931,7 @@
         // 保存定时任务
         save(tasks) {
             try {
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(tasks));
+                store.set(this.STORAGE_KEY, tasks);
                 return true;
             } catch (e) {
                 console.error('保存定时任务失败:', e);
@@ -988,20 +1185,25 @@
      * 这样 GroupPopup.addButton 能自动读取和切换状态并显示凹陷效果。
      */
     const ACTIONS = [
+        // 第1列：隐藏日志、显按钮
         { id: 'toggle-log', label: '隐藏日志', column: 1, handler: toggleLog },
         { id: 'toggle-buttons', label: '显按钮', column: 1, handler: toggleButtons },
+        
+        // 第2列：皮肤集、换皮肤
+        { id: 'skin-open', label: '皮肤集', column: 2, handler: toggleSkinSelector },
         { id: 'theme', label: '换皮肤', column: 2, handler: switchTheme },
-        { id: 'toast', label: '弹窗提示', column: 3, handler: toggleToast },
-        { id: 'debug', label: '调试执行', column: 2, handler: executeDebugCode },
-
-        // 分组：开关集（kgj-open 为主按钮，用于切换弹窗）
+        
+        // 第3列：弹出提示、调试执行
+        { id: 'toast', label: '弹出提示', column: 3, handler: toggleToast },
+        { id: 'debug', label: '调试执行', column: 3, handler: executeDebugCode },
+        
+        // 第4列：定时任务、推送文本
+        { id: 'schedule-open', label: '定时任务', column: 4, handler: toggleScheduleManager },
+        
+        // 第5列：配置集、开关集、指令集
+        { id: 'cfg-open', label: '配置集', column: 5, handler: toggleGroup('配置集') },
         { id: 'kgj-open', label: '开关集', column: 5, handler: toggleGroup('开关集') },
-        // 皮肤集按钮
-        { id: 'skin-open', label: '皮肤集', column: 5, handler: toggleSkinSelector },
-        // 指令集按钮
         { id: 'command-open', label: '指令集', column: 5, handler: toggleCommandSelector },
-        // 定时任务按钮
-        { id: 'schedule-open', label: '定时任务', column: 5, handler: toggleScheduleManager },
         // 组内按钮，带 isToggle + storeKey 的会显示凹陷效果
         {
             id: 'tf',
@@ -1022,7 +1224,6 @@
         { id: 'zxs', label: '设智悬', group: '开关集', handler: noop('设智悬') },
 
         // 分组：配置集
-        { id: 'cfg-open', label: '配置集', column: 4, handler: toggleGroup('配置集') },
         {
             id: 'cfg-api',
             label: '剪切板API',
@@ -1034,6 +1235,20 @@
             label: '安全码',
             group: '配置集',
             handler: configSafeCode
+        },
+        {
+            id: 'cfg-remote-url',
+            label: '远程指令URL',
+            group: '配置集',
+            handler: configRemoteCommandUrl
+        },
+        {
+            id: 'cfg-remote-enable',
+            label: '启用远程指令',
+            group: '配置集',
+            isToggle: true,
+            storeKey: 'remote_commands_enabled',
+            handler: makeToggle('cfg-remote-enable', '启用远程指令', '禁用远程指令', 'remote_commands_enabled')
         },
         // 组内按钮：推送文本
         {
@@ -1354,21 +1569,90 @@
     const CommandStorage = {
         STORAGE_KEY: 'custom_commands',
 
-        // 获取所有指令
+        // 获取所有指令（包括本地和远程）
         getAll() {
             try {
-                const data = localStorage.getItem(this.STORAGE_KEY);
-                return data ? JSON.parse(data) : [];
+                // 获取本地指令（使用全局存储）
+                let localCommands = store.get(this.STORAGE_KEY, []);
+                
+                // 数据迁移：确保所有本地指令都有必要的字段
+                let needsSave = false;
+                localCommands = localCommands.map(cmd => {
+                    if (!cmd.id) {
+                        cmd.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                        needsSave = true;
+                        console.warn('为指令添加缺失的ID:', cmd.name, cmd.id);
+                    }
+                    if (cmd.code === undefined || cmd.code === null) {
+                        cmd.code = '';
+                        needsSave = true;
+                        console.warn('为指令添加缺失的代码字段:', cmd.name);
+                    }
+                    if (!cmd.name) {
+                        cmd.name = '未命名指令_' + cmd.id;
+                        needsSave = true;
+                        console.warn('为指令添加缺失的名称字段:', cmd.id);
+                    }
+                    // 标记为本地指令
+                    cmd.isRemote = false;
+                    return cmd;
+                });
+                
+                // 如果有数据需要迁移，保存回存储
+                if (needsSave) {
+                    this.save(localCommands);
+                    console.log('指令数据迁移完成');
+                }
+                
+                // 获取远程指令（如果启用）
+                let remoteCommands = [];
+                if (store.get('remote_commands_enabled', 0) === 1) {
+                    remoteCommands = RemoteCommandStorage.getCache();
+                }
+                
+                // 合并指令：远程指令在前，本地指令在后
+                const allCommands = [...remoteCommands, ...localCommands];
+                
+                return allCommands;
             } catch (e) {
                 console.error('获取指令失败:', e);
                 return [];
             }
         },
 
-        // 保存指令
+        // 获取仅本地指令
+        getLocalOnly() {
+            try {
+                let commands = store.get(this.STORAGE_KEY, []);
+                
+                // 确保本地指令都有必要的字段
+                commands = commands.map(cmd => {
+                    if (!cmd.id) {
+                        cmd.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                    }
+                    if (cmd.code === undefined || cmd.code === null) {
+                        cmd.code = '';
+                    }
+                    if (!cmd.name) {
+                        cmd.name = '未命名指令_' + cmd.id;
+                    }
+                    cmd.isRemote = false;
+                    return cmd;
+                });
+                
+                return commands;
+            } catch (e) {
+                console.error('获取本地指令失败:', e);
+                return [];
+            }
+        },
+
+        // 保存指令（仅保存本地指令）
         save(commands) {
             try {
-                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(commands));
+                // 过滤出本地指令
+                const localCommands = commands.filter(cmd => !cmd.isRemote);
+                store.set(this.STORAGE_KEY, localCommands);
                 return true;
             } catch (e) {
                 console.error('保存指令失败:', e);
@@ -1376,42 +1660,46 @@
             }
         },
 
-        // 添加指令
-        add(name, code) {
-            const commands = this.getAll();
+        // 添加指令（仅添加到本地）
+        add(name, code, description = '') {
+            const localCommands = this.getLocalOnly();
             const newCommand = {
                 id: Date.now().toString(),
                 name: name,
+                description: description,
                 code: code,
-                createTime: new Date().toISOString()
+                createTime: new Date().toISOString(),
+                isRemote: false
             };
-            commands.push(newCommand);
-            return this.save(commands);
+            localCommands.push(newCommand);
+            return this.save(localCommands);
         },
 
-        // 删除指令
+        // 删除指令（仅删除本地指令）
         remove(id) {
-            const commands = this.getAll();
-            const filtered = commands.filter(cmd => cmd.id !== id);
+            const localCommands = this.getLocalOnly();
+            const filtered = localCommands.filter(cmd => cmd.id !== id);
             return this.save(filtered);
         },
 
-        // 导入指令
+        // 导入指令（仅导入到本地）
         import(commandsData) {
             try {
                 if (Array.isArray(commandsData)) {
-                    const commands = this.getAll();
+                    const localCommands = this.getLocalOnly();
                     commandsData.forEach(cmd => {
                         if (cmd.name && cmd.code) {
-                            commands.push({
+                            localCommands.push({
                                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
                                 name: cmd.name,
+                                description: cmd.description || '',
                                 code: cmd.code,
-                                createTime: new Date().toISOString()
+                                createTime: new Date().toISOString(),
+                                isRemote: false
                             });
                         }
                     });
-                    return this.save(commands);
+                    return this.save(localCommands);
                 }
                 return false;
             } catch (e) {
@@ -1420,11 +1708,12 @@
             }
         },
 
-        // 导出指令
+        // 导出指令（仅导出本地指令）
         export() {
-            const commands = this.getAll();
-            return commands.map(cmd => ({
+            const localCommands = this.getLocalOnly();
+            return localCommands.map(cmd => ({
                 name: cmd.name,
+                description: cmd.description || '',
                 code: cmd.code
             }));
         }
@@ -1557,6 +1846,7 @@
         createManageDialog(commands) {
             // 创建指令管理弹窗遮罩
             const sortOverlay = h('div', {
+                className: 'tmx-command-manage-dialog',
                 style: {
                     position: 'fixed',
                     inset: '0',
@@ -1637,6 +1927,7 @@
 
             // 可排序列表容器
             const listContainer = h('div', {
+                className: 'tmx-command-list-container',
                 style: {
                     flex: '1',
                     overflow: 'auto',
@@ -1709,8 +2000,30 @@
             document.body.appendChild(sortOverlay);
         }
 
+        refreshManageDialog() {
+            // FIXME: 编辑指令保存后仍会创建重复的指令管理弹窗，需要进一步调试弹窗查找逻辑
+            // 查找现有的指令管理弹窗
+            const existingOverlay = document.querySelector('.tmx-command-manage-dialog');
+            if (!existingOverlay) {
+                // 如果没有现有弹窗，创建新的
+                this.createManageDialog(CommandStorage.getAll());
+                return;
+            }
+
+            // 找到列表容器并更新内容
+            const listContainer = existingOverlay.querySelector('.tmx-command-list-container');
+            if (listContainer) {
+                // 清空现有内容
+                listContainer.innerHTML = '';
+                // 重新创建指令列表
+                const newList = this.createSortableList(CommandStorage.getAll());
+                listContainer.appendChild(newList);
+            }
+        }
+
         createSortableList(commands) {
             const list = h('div', {
+                className: 'sortable-list',
                 style: {
                     display: 'flex',
                     flexDirection: 'column',
@@ -1730,40 +2043,45 @@
         }
 
         createSortableItem(command, index) {
+            const isRemote = command.isRemote;
+            
             const item = h('div', {
-                draggable: true,
+                draggable: !isRemote, // 远程指令不可拖拽
                 'data-command-id': command.id,
                 'data-index': index,
+                'data-is-remote': isRemote,
                 style: {
                     padding: '12px 15px',
-                    background: '#f8f9fa',
-                    border: '1px solid #e9ecef',
+                    background: isRemote ? '#e8f4fd' : '#f8f9fa', // 远程指令使用不同背景色
+                    border: isRemote ? '1px solid #bee5eb' : '1px solid #e9ecef',
                     borderRadius: '6px',
-                    cursor: 'move',
+                    cursor: isRemote ? 'default' : 'move', // 远程指令不显示移动光标
                     transition: 'all 0.2s ease',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '10px',
-                    userSelect: 'none'
+                    userSelect: 'none',
+                    opacity: isRemote ? '0.8' : '1' // 远程指令稍微透明
                 }
             });
 
-            // 拖拽图标
-            const dragIcon = h('span', {
+            // 远程标识或拖拽图标
+            const iconElement = h('span', {
                 style: {
-                    color: '#6c757d',
+                    color: isRemote ? '#0066cc' : '#6c757d',
                     fontSize: '14px',
-                    fontFamily: 'monospace'
+                    fontFamily: 'monospace',
+                    fontWeight: isRemote ? 'bold' : 'normal'
                 }
-            }, '⋮⋮');
+            }, isRemote ? '🌐' : '⋮⋮');
 
             // 序号
             const orderNumber = h('span', {
                 style: {
                     minWidth: '24px',
                     height: '24px',
-                    background: 'var(--tmx-bg)',
-                    color: 'var(--tmx-fg)',
+                    background: isRemote ? '#0066cc' : 'var(--tmx-bg)',
+                    color: isRemote ? '#fff' : 'var(--tmx-fg)',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -1778,9 +2096,9 @@
                 style: {
                     flex: '1',
                     fontWeight: '500',
-                    color: '#333'
+                    color: isRemote ? '#0066cc' : '#333'
                 }
-            }, command.name);
+            }, isRemote ? `${command.name} (远程)` : command.name);
 
             // 指令描述（如果有）
             const commandDesc = h('span', {
@@ -1794,60 +2112,497 @@
                 }
             }, command.description || '无描述');
 
-            // 删除按钮
-            const deleteBtn = h('button', {
+            // 编辑按钮（远程指令禁用）
+            const editBtn = h('button', {
+                title: isRemote ? '远程指令不可编辑' : '编辑指令',
                 style: {
-                    background: '#dc3545',
+                    background: isRemote ? '#6c757d' : '#007bff',
                     color: 'white',
                     border: 'none',
                     borderRadius: '4px',
                     width: '24px',
                     height: '24px',
-                    cursor: 'pointer',
+                    cursor: isRemote ? 'not-allowed' : 'pointer',
                     fontSize: '12px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.2s ease'
+                    transition: 'all 0.2s ease',
+                    marginRight: '5px',
+                    opacity: isRemote ? '0.5' : '1'
                 },
                 onclick: async (e) => {
+                    console.log('编辑按钮被点击', command.name, 'isRemote:', isRemote);
                     e.stopPropagation();
-                    await this.deleteCommand(command, item);
+                    if (isRemote) {
+                        Toast.show('远程指令不可编辑', 'warning');
+                        return;
+                    }
+                    const commandSelector = window.commandSelector || this;
+                    console.log('commandSelector:', commandSelector);
+                    try {
+                        await commandSelector.editCommand(command);
+                    } catch (error) {
+                        console.error('编辑指令失败:', error);
+                        Toast.show('编辑指令失败: ' + error.message, 'error');
+                    }
+                }
+            }, '✎');
+
+            // 删除按钮（远程指令禁用）
+            const deleteBtn = h('button', {
+                title: isRemote ? '远程指令不可删除' : '删除指令',
+                style: {
+                    background: isRemote ? '#6c757d' : '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    width: '24px',
+                    height: '24px',
+                    cursor: isRemote ? 'not-allowed' : 'pointer',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease',
+                    opacity: isRemote ? '0.5' : '1'
+                },
+                onclick: async (e) => {
+                    console.log('删除按钮被点击', command.name, 'isRemote:', isRemote);
+                    e.stopPropagation();
+                    if (isRemote) {
+                        Toast.show('远程指令不可删除', 'warning');
+                        return;
+                    }
+                    const commandSelector = window.commandSelector || this;
+                    console.log('commandSelector:', commandSelector);
+                    try {
+                        await commandSelector.deleteCommand(command, item);
+                    } catch (error) {
+                        console.error('删除指令失败:', error);
+                        Toast.show('删除指令失败: ' + error.message, 'error');
+                    }
                 }
             }, '×');
 
-            // 悬停效果
-            deleteBtn.addEventListener('mouseenter', () => {
-                deleteBtn.style.background = '#c82333';
-                deleteBtn.style.transform = 'scale(1.1)';
-            });
-            deleteBtn.addEventListener('mouseleave', () => {
-                deleteBtn.style.background = '#dc3545';
-                deleteBtn.style.transform = 'scale(1)';
-            });
+            // 编辑按钮悬停效果（仅本地指令）
+            if (!isRemote) {
+                editBtn.addEventListener('mouseenter', () => {
+                    editBtn.style.background = '#0056b3';
+                    editBtn.style.transform = 'scale(1.1)';
+                });
+                editBtn.addEventListener('mouseleave', () => {
+                    editBtn.style.background = '#007bff';
+                    editBtn.style.transform = 'scale(1)';
+                });
 
-            item.appendChild(dragIcon);
+                // 删除按钮悬停效果（仅本地指令）
+                deleteBtn.addEventListener('mouseenter', () => {
+                    deleteBtn.style.background = '#c82333';
+                    deleteBtn.style.transform = 'scale(1.1)';
+                });
+                deleteBtn.addEventListener('mouseleave', () => {
+                    deleteBtn.style.background = '#dc3545';
+                    deleteBtn.style.transform = 'scale(1)';
+                });
+            }
+
+            item.appendChild(iconElement);
             item.appendChild(orderNumber);
             item.appendChild(commandName);
             item.appendChild(commandDesc);
+            item.appendChild(editBtn);
             item.appendChild(deleteBtn);
 
-            // 添加悬停效果
+            // 添加悬停效果（远程指令使用不同样式）
             item.addEventListener('mouseenter', () => {
-                item.style.background = '#e9ecef';
-                item.style.transform = 'translateY(-1px)';
-                item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                const hoverBg = isRemote ? '#d1ecf1' : '#e9ecef';
+                item.style.background = hoverBg;
+                if (!isRemote) {
+                    item.style.transform = 'translateY(-1px)';
+                    item.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                }
             });
 
             item.addEventListener('mouseleave', () => {
                 if (!item.classList.contains('dragging')) {
-                    item.style.background = '#f8f9fa';
-                    item.style.transform = 'translateY(0)';
-                    item.style.boxShadow = 'none';
+                    const normalBg = isRemote ? '#e8f4fd' : '#f8f9fa';
+                    item.style.background = normalBg;
+                    if (!isRemote) {
+                        item.style.transform = 'translateY(0)';
+                        item.style.boxShadow = 'none';
+                    }
                 }
             });
 
             return item;
+        }
+
+        async editCommand(command) {
+            this.createEditDialog(command);
+        }
+
+        createEditDialog(command) {
+            // 确保指令对象有必要的字段
+            if (!command.id) {
+                command.id = Date.now().toString();
+                console.warn('指令缺少ID，已自动生成:', command.id);
+            }
+            if (!command.code) {
+                command.code = '';
+                console.warn('指令缺少代码字段，已初始化为空字符串');
+            }
+            if (!command.name) {
+                command.name = '未命名指令';
+                console.warn('指令缺少名称字段，已设置默认名称');
+            }
+            
+            // 创建编辑弹窗遮罩
+            const editOverlay = h('div', {
+                className: 'tmx-command-edit-dialog',
+                style: {
+                    position: 'fixed',
+                    inset: '0',
+                    zIndex: 2147483647, // 最高层级，确保在指令管理界面之上
+                    display: 'flex',
+                    background: 'rgba(0,0,0,0.5)',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }
+            });
+
+            // 创建编辑弹窗面板
+            const editPanel = h('div', {
+                style: {
+                    width: '600px',
+                    maxWidth: '90vw',
+                    maxHeight: '80vh',
+                    background: '#fff',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                    overflow: 'hidden',
+                    fontFamily: 'Arial, sans-serif',
+                    display: 'flex',
+                    flexDirection: 'column'
+                }
+            });
+
+            // 标题栏
+            const header = h('div', {
+                style: {
+                    padding: '15px 20px',
+                    borderBottom: '1px solid #eee',
+                    background: 'var(--tmx-bg)',
+                    color: 'var(--tmx-fg)',
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }
+            });
+
+            const title = h('span', {}, '编辑指令');
+            const closeBtn = h('button', {
+                style: {
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--tmx-fg)',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    padding: '0',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                },
+                onclick: () => {
+                    document.body.removeChild(editOverlay);
+                }
+            }, '×');
+
+            header.appendChild(title);
+            header.appendChild(closeBtn);
+
+            // 内容区域
+            const content = h('div', {
+                style: {
+                    flex: '1',
+                    padding: '20px',
+                    overflow: 'auto'
+                }
+            });
+
+            // 创建表单容器
+            const formContainer = h('div', {
+                style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '20px'
+                }
+            });
+
+            // 指令名称字段
+            const nameField = h('div', {
+                style: {
+                    display: 'flex',
+                    flexDirection: 'column'
+                }
+            });
+
+            const nameLabel = h('label', {
+                style: {
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#333',
+                    marginBottom: '8px'
+                }
+            }, '指令名称');
+
+            const nameInput = h('input', {
+                type: 'text',
+                value: command.name || '',
+                style: {
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease',
+                    outline: 'none'
+                },
+                placeholder: '输入指令名称',
+                onfocus: function() {
+                    this.style.borderColor = '#007bff';
+                },
+                onblur: function() {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
+
+            nameField.appendChild(nameLabel);
+            nameField.appendChild(nameInput);
+
+            // 指令描述字段
+            const descField = h('div', {
+                style: {
+                    display: 'flex',
+                    flexDirection: 'column'
+                }
+            });
+
+            const descLabel = h('label', {
+                style: {
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#333',
+                    marginBottom: '8px'
+                }
+            }, '指令描述');
+
+            const descInput = h('input', {
+                type: 'text',
+                value: command.description || '',
+                style: {
+                    width: '100%',
+                    padding: '12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease',
+                    outline: 'none'
+                },
+                placeholder: '输入指令描述（可选）',
+                onfocus: function() {
+                    this.style.borderColor = '#007bff';
+                },
+                onblur: function() {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
+
+            descField.appendChild(descLabel);
+            descField.appendChild(descInput);
+
+            // 指令代码字段
+            const codeField = h('div', {
+                style: {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: '1'
+                }
+            });
+
+            const codeLabel = h('label', {
+                style: {
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#333',
+                    marginBottom: '8px'
+                }
+            }, '指令代码');
+
+            const codeTextarea = h('textarea', {
+                style: {
+                    width: '100%',
+                    minHeight: '200px',
+                    padding: '12px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+                    resize: 'vertical',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.2s ease',
+                    outline: 'none',
+                    lineHeight: '1.5'
+                },
+                placeholder: '输入指令代码',
+                onfocus: function() {
+                    this.style.borderColor = '#007bff';
+                },
+                onblur: function() {
+                    this.style.borderColor = '#e1e5e9';
+                }
+            });
+            
+            // 设置textarea的值
+            codeTextarea.value = command.code || '';
+            codeTextarea.textContent = command.code || '';
+
+            codeField.appendChild(codeLabel);
+            codeField.appendChild(codeTextarea);
+
+            formContainer.appendChild(nameField);
+            formContainer.appendChild(descField);
+            formContainer.appendChild(codeField);
+            content.appendChild(formContainer);
+
+            // 按钮区域
+            const buttonArea = h('div', {
+                style: {
+                    padding: '15px 20px',
+                    borderTop: '1px solid #eee',
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px'
+                }
+            });
+
+            const cancelBtn = h('button', {
+                style: {
+                    padding: '8px 16px',
+                    background: '#f8f9fa',
+                    color: '#333',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                },
+                onclick: () => {
+                    document.body.removeChild(editOverlay);
+                }
+            }, '取消');
+
+            const saveBtn = h('button', {
+                style: {
+                    padding: '8px 16px',
+                    background: 'var(--tmx-bg)',
+                    color: 'var(--tmx-fg)',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                },
+                onclick: async () => {
+                    await this.saveEditedCommand(command, nameInput.value.trim(), descInput.value.trim(), codeTextarea.value.trim(), editOverlay);
+                }
+            }, '保存');
+
+            buttonArea.appendChild(cancelBtn);
+            buttonArea.appendChild(saveBtn);
+
+            editPanel.appendChild(header);
+            editPanel.appendChild(content);
+            editPanel.appendChild(buttonArea);
+            editOverlay.appendChild(editPanel);
+
+            document.body.appendChild(editOverlay);
+
+            // 聚焦到名称输入框
+            setTimeout(() => {
+                nameInput.focus();
+                nameInput.select();
+            }, 100);
+        }
+
+        async saveEditedCommand(originalCommand, newName, newDescription, newCode, overlay) {
+            // 验证输入
+            if (!newName) {
+                Toast.show('指令名称不能为空', 'error');
+                return;
+            }
+
+            if (!newCode) {
+                Toast.show('指令代码不能为空', 'error');
+                return;
+            }
+
+            try {
+                // 检查名称是否与其他指令冲突
+                const commands = CommandStorage.getAll();
+                const nameConflict = commands.find(cmd => cmd.id !== originalCommand.id && cmd.name === newName);
+                
+                if (nameConflict) {
+                    const confirmed = await Dialog.confirm(
+                        `指令名称 "${newName}" 已存在，是否覆盖现有指令？`,
+                        '名称冲突'
+                    );
+                    if (!confirmed) {
+                        return;
+                    }
+                    // 删除冲突的指令
+                    CommandStorage.remove(nameConflict.id);
+                }
+
+                // 更新指令
+                let updatedCommands = commands.map(cmd => {
+                    if (cmd.id === originalCommand.id) {
+                        return {
+                            ...cmd,
+                            name: newName,
+                            description: newDescription || '',
+                            code: newCode,
+                            updateTime: new Date().toISOString()
+                        };
+                    }
+                    return cmd;
+                });
+
+                // 如果有名称冲突，过滤掉冲突的指令
+                if (nameConflict) {
+                    updatedCommands = updatedCommands.filter(cmd => cmd.id !== nameConflict.id);
+                }
+
+                // 保存到存储
+                CommandStorage.save(updatedCommands);
+
+                // 关闭编辑弹窗
+                document.body.removeChild(overlay);
+
+                // 刷新界面
+                this.updateCommandButtons();
+                
+                // 刷新现有的指令管理弹窗内容，而不是重新创建
+                this.refreshManageDialog();
+
+                Toast.show(`指令 "${newName}" 已更新`, 'success');
+            } catch (error) {
+                console.error('保存指令失败:', error);
+                Toast.show('保存指令失败', 'error');
+            }
         }
 
         async deleteCommand(command, itemElement) {
@@ -1858,10 +2613,10 @@
             );
             if (confirmed) {
                 try {
-                    // 从localStorage中删除指令
+                    // 从全局存储中删除指令
                     const commands = CommandStorage.getAll();
                     const updatedCommands = commands.filter(cmd => cmd.id !== command.id);
-                    localStorage.setItem(CommandStorage.STORAGE_KEY, JSON.stringify(updatedCommands));
+                    CommandStorage.save(updatedCommands);
 
                     // 从界面中移除元素
                     itemElement.style.transition = 'all 0.3s ease';
@@ -1889,6 +2644,13 @@
             let placeholder = null;
 
             list.addEventListener('dragstart', (e) => {
+                // 检查是否为远程指令，如果是则阻止拖拽
+                if (e.target.getAttribute('data-is-remote') === 'true') {
+                    e.preventDefault();
+                    Toast.show('远程指令不可排序', 'warning');
+                    return;
+                }
+
                 draggedElement = e.target;
                 draggedElement.classList.add('dragging');
                 draggedElement.style.opacity = '0.5';
@@ -1977,25 +2739,26 @@
         }
 
         saveSortedCommands(sortableList) {
-            const items = sortableList.querySelectorAll('[data-command-id]');
+            // 只获取本地指令的ID（排除远程指令）
+            const items = sortableList.querySelectorAll('[data-command-id]:not([data-is-remote="true"])');
             const sortedIds = Array.from(items).map(item => item.getAttribute('data-command-id'));
 
-            // 获取所有指令
-            const allCommands = CommandStorage.getAll();
+            // 获取本地指令
+            const localCommands = CommandStorage.getLocalOnly();
 
             // 创建ID到指令的映射
             const commandMap = new Map();
-            allCommands.forEach(command => {
+            localCommands.forEach(command => {
                 commandMap.set(command.id, command);
             });
 
-            // 按新顺序重新排列指令
-            const sortedCommands = sortedIds.map(id => commandMap.get(id)).filter(Boolean);
+            // 按新顺序重新排列本地指令
+            const sortedLocalCommands = sortedIds.map(id => commandMap.get(id)).filter(Boolean);
 
-            // 保存到localStorage
+            // 保存到localStorage（只保存本地指令）
             try {
-                localStorage.setItem(CommandStorage.STORAGE_KEY, JSON.stringify(sortedCommands));
-                Toast.show('指令管理已保存', 'success');
+                CommandStorage.save(sortedLocalCommands);
+                Toast.show('指令排序已保存', 'success');
 
                 // 刷新指令按钮显示
                 this.updateCommandButtons();
@@ -2645,7 +3408,7 @@
                                 ...command,
                                 id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
                             };
-                            CommandStorage.add(newCommand.name, newCommand.code);
+                            CommandStorage.add(newCommand.name, newCommand.code, newCommand.description || '');
                             importedCommandCount++;
 
                             // 更新任务中的指令ID引用
@@ -2713,6 +3476,7 @@
     function toggleCommandSelector(btnEl) {
         if (!commandSelector) {
             commandSelector = new CommandSelector();
+            window.commandSelector = commandSelector;
         }
         commandSelector.toggle();
         if (btnEl) {
@@ -2741,7 +3505,19 @@
             btn.style.borderStyle = flag ? 'inset' : 'outset';
             btn.textContent = flag ? '关闭弹窗' : '弹窗提示';
         }
-        if (flag) Toast.show('提示', '<b>你好</b>');
+        
+        if (flag) {
+            // 开启弹窗提示时显示弹窗
+            Toast.show('提示', '你好');
+        } else {
+            // 关闭弹窗提示时，如果右下角有弹窗则自动关闭
+            Toast.hide();
+        }
+        
+        // 通知调试窗口更新最小化容器位置，避免与弹窗重叠
+        if (window.DebugWindow && window.DebugWindow.updateMinimizedContainerPosition) {
+            window.DebugWindow.updateMinimizedContainerPosition();
+        }
     }
 
     /** -------------------- 组控制 -------------------- */
@@ -2805,6 +3581,24 @@
         }
     }
 
+    async function configRemoteCommandUrl() {
+        try {
+            const key = 'remote_command_url';
+            const current = store.get(key, '');
+            const value = await Dialog.prompt('请输入远程指令集URL:', current || '', '配置远程指令集');
+            if (value !== null) {
+                store.set(key, value);
+                console.log('[配置集] 已保存远程指令集URL:', value);
+                // 如果启用了远程指令，立即尝试同步
+                if (store.get('remote_commands_enabled', 0) === 1) {
+                    await syncRemoteCommands(true);
+                }
+            }
+        } catch (err) {
+            console.error('配置远程指令URL错误:', err);
+        }
+    }
+
     /** -------------------- 调试功能 -------------------- */
     function executeDebugCode() {
         // 创建新的调试代码窗口
@@ -2822,6 +3616,183 @@
         if (value !== null) {
             store.set(key, value);
             console.log('[配置集] 已保存剪切板安全码:', value);
+        }
+    }
+
+    /** -------------------- 远程指令集管理 -------------------- */
+    // 远程指令集存储
+    const RemoteCommandStorage = {
+        STORAGE_KEY: 'remote_commands_cache',
+        LAST_SYNC_KEY: 'remote_commands_last_sync',
+
+        // 获取缓存的远程指令
+        getCache() {
+            try {
+                return store.get(this.STORAGE_KEY, []);
+            } catch (e) {
+                console.error('获取远程指令缓存失败:', e);
+                return [];
+            }
+        },
+
+        // 保存远程指令到缓存
+        saveCache(commands) {
+            try {
+                store.set(this.STORAGE_KEY, commands);
+                store.set(this.LAST_SYNC_KEY, Date.now());
+                return true;
+            } catch (e) {
+                console.error('保存远程指令缓存失败:', e);
+                return false;
+            }
+        },
+
+        // 获取上次同步时间
+        getLastSyncTime() {
+            try {
+                return store.get(this.LAST_SYNC_KEY, 0);
+            } catch (e) {
+                return 0;
+            }
+        },
+
+        // 清除缓存
+        clearCache() {
+            try {
+                store.remove(this.STORAGE_KEY);
+                store.remove(this.LAST_SYNC_KEY);
+            } catch (e) {
+                console.error('清除远程指令缓存失败:', e);
+            }
+        }
+    };
+
+    // 同步远程指令集
+    async function syncRemoteCommands(showToast = true) {
+        const url = store.get('remote_command_url', '');
+        if (!url) {
+            console.log('[远程指令] 未配置远程指令集URL');
+            if (showToast) {
+                Toast.show('未配置远程指令集URL', 'warning');
+            }
+            return false;
+        }
+
+        // 显示加载状态
+        if (showToast) {
+            Toast.show('正在同步远程指令集...', 'info');
+        }
+
+        try {
+            console.log('[远程指令] 开始同步远程指令集:', url);
+            
+            // 使用GM_xmlhttpRequest避免跨域问题
+            const data = await new Promise((resolve, reject) => {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: url,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache',
+                        'User-Agent': 'ClipboardSender/1.0'
+                    },
+                    timeout: 15000, // 15秒超时
+                    onload: function(response) {
+                        try {
+                            if (response.status < 200 || response.status >= 300) {
+                                reject(new Error(`HTTP ${response.status}: ${response.statusText}`));
+                                return;
+                            }
+
+                            const contentType = response.responseHeaders.toLowerCase();
+                            if (!contentType.includes('application/json') && !contentType.includes('text/json')) {
+                                // 尝试解析，可能服务器没有设置正确的Content-Type
+                                console.warn('[远程指令] 响应头未包含JSON类型，尝试强制解析');
+                            }
+
+                            const jsonData = JSON.parse(response.responseText);
+                            resolve(jsonData);
+                        } catch (parseError) {
+                            reject(new Error(`JSON解析失败: ${parseError.message}`));
+                        }
+                    },
+                    onerror: function(error) {
+                        reject(new Error('网络请求失败'));
+                    },
+                    ontimeout: function() {
+                        reject(new Error('请求超时'));
+                    }
+                });
+            });
+            
+            // 验证数据格式
+            if (!Array.isArray(data)) {
+                throw new Error('远程指令集格式错误：应为数组格式');
+            }
+
+            if (data.length === 0) {
+                console.log('[远程指令] 远程指令集为空');
+                if (showToast) {
+                    Toast.show('远程指令集为空', 'warning');
+                }
+                RemoteCommandStorage.saveCache([]);
+                return true;
+            }
+
+            // 处理远程指令数据
+            const remoteCommands = data.map((cmd, index) => {
+                // 验证必要字段
+                if (!cmd.name && !cmd.code) {
+                    console.warn(`[远程指令] 跳过无效指令 (索引 ${index}):`, cmd);
+                    return null;
+                }
+                
+                // 确保每个指令都有必要的字段
+                const processedCmd = {
+                    id: cmd.id || `remote_${Date.now()}_${index}`,
+                    name: cmd.name || `远程指令_${index + 1}`,
+                    description: cmd.description || '',
+                    code: cmd.code || '',
+                    createTime: cmd.createTime || new Date().toISOString(),
+                    isRemote: true, // 标记为远程指令
+                    remoteUrl: url // 记录来源URL
+                };
+                return processedCmd;
+            }).filter(Boolean); // 过滤掉无效指令
+
+            // 保存到缓存
+            const saveSuccess = RemoteCommandStorage.saveCache(remoteCommands);
+            if (!saveSuccess) {
+                throw new Error('保存远程指令到本地缓存失败');
+            }
+            
+            console.log(`[远程指令] 同步成功，获取到 ${remoteCommands.length} 个远程指令`);
+            
+            if (showToast) {
+                Toast.show(`远程指令同步成功，获取 ${remoteCommands.length} 个指令`, 'success');
+            }
+            
+            return true;
+
+        } catch (error) {
+            console.error('[远程指令] 同步失败:', error);
+            
+            let errorMessage = '远程指令同步失败';
+            if (error.message.includes('请求超时')) {
+                errorMessage = '远程指令同步超时，请检查网络连接';
+            } else if (error.message.includes('网络请求失败')) {
+                errorMessage = '网络连接失败，请检查URL或网络状态';
+            } else if (error.message.includes('JSON解析失败')) {
+                errorMessage = '远程指令数据格式错误，请检查URL返回的内容';
+            } else {
+                errorMessage = `远程指令同步失败：${error.message}`;
+            }
+            
+            if (showToast) {
+                Toast.show(errorMessage, 'error');
+            }
+            
+            return false;
         }
     }
 
@@ -2939,7 +3910,7 @@
                 style: {
                     position: 'fixed',
                     inset: '0',
-                    zIndex: 2147483647,
+                    zIndex: 2147483647, // 最高层级，确保在指令管理界面之上
                     display: 'none',
                     background: 'rgba(0,0,0,0.5)',
                     alignItems: 'center',
@@ -3289,11 +4260,24 @@
         let minimizedContainer = null;
 
         function createMinimizedContainer() {
-            if (minimizedContainer) return;
+            // 动态计算Toast弹窗的实际高度，为调试窗口留出空间
+            const toastElement = document.getElementById('tmx-toast');
+            let toastHeight = 0;
+            if (toastElement && toastElement.style.display !== 'none') {
+                // 弹窗显示时，获取其实际高度
+                toastHeight = toastElement.offsetHeight;
+            }
+            // 如果没有弹窗或获取不到高度，使用默认值
+            if (toastHeight === 0) {
+                toastHeight = 50; // 默认高度
+            }
+            const bottomOffset = 10 + toastHeight + 15; // 基础间距 + Toast实际高度 + 额外间距，避免遮挡弹窗按钮
 
-            // 计算Toast弹窗的高度，为调试窗口留出空间
-            const toastHeight = 50; // Toast最小化后的大概高度
-            const bottomOffset = 10 + toastHeight + 10; // Toast高度 + 间距
+            if (minimizedContainer) {
+                // 如果容器已存在，更新其位置
+                minimizedContainer.style.bottom = bottomOffset + 'px';
+                return;
+            }
 
             minimizedContainer = h('div', {
                 style: {
@@ -3315,6 +4299,9 @@
             windowCounter++;
             const windowId = `debug-window-${windowCounter}`;
 
+            // 检测是否为移动端设备
+            const isMobile = /Android|iPhone|SymbianOS|Windows Phone|iPad|iPod/i.test(navigator.userAgent);
+            
             // 创建窗口遮罩
             const overlay = h('div', {
                 style: {
@@ -3323,8 +4310,9 @@
                     zIndex: 2147483640,
                     display: 'flex',
                     background: 'rgba(0,0,0,0.3)',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                    alignItems: isMobile ? 'flex-start' : 'center',
+                    justifyContent: 'center',
+                    paddingTop: isMobile ? (CONFIG.buttonTop + CONFIG.buttonHeight * 3 + 20) + 'px' : '0'
                 }
             });
 
@@ -3340,7 +4328,7 @@
                     fontFamily: 'Arial, sans-serif',
                     display: 'flex',
                     flexDirection: 'column',
-                    maxHeight: '80vh'
+                    maxHeight: isMobile && window.innerHeight <= 667 ? '70vh' : '80vh' // iPhone SE等小屏设备优化
                 }
             });
 
@@ -3478,7 +4466,7 @@
             const textareaEl = h('textarea', {
                 style: {
                     width: '100%',
-                    height: '300px',
+                    height: isMobile && window.innerHeight <= 667 ? '200px' : '300px', // 小屏设备减少高度
                     padding: '10px',
                     border: '1px solid #ddd',
                     borderRadius: '4px',
@@ -3487,8 +4475,8 @@
                     fontSize: '13px',
                     lineHeight: '1.4',
                     resize: 'vertical',
-                    minHeight: '200px',
-                    maxHeight: '500px',
+                    minHeight: isMobile && window.innerHeight <= 667 ? '150px' : '200px', // 小屏设备减少最小高度
+                    maxHeight: isMobile && window.innerHeight <= 667 ? '300px' : '500px', // 小屏设备减少最大高度
                     flex: '1'
                 },
                 placeholder: '请输入JavaScript代码...\n\n支持多行输入，例如:\nconsole.log("调试信息");\nalert("弹窗测试");\ndocument.querySelector("body").style.background = "red";'
@@ -3648,6 +4636,8 @@
 
             // 存储最小化项引用
             windowInfo.minimizedItem = minimizedItem;
+            
+
         }
 
         function restoreWindow(windowId) {
@@ -3672,6 +4662,8 @@
                 minimizedContainer.remove();
                 minimizedContainer = null;
             }
+
+
 
             // 聚焦到文本框
             setTimeout(() => windowInfo.textareaEl.focus(), 100);
@@ -3700,6 +4692,7 @@
                 minimizedContainer.remove();
                 minimizedContainer = null;
             }
+
         }
 
         // 便捷点击函数 - 通过按钮名称点击
@@ -3820,6 +4813,14 @@
                     return;
                 }
 
+                // 请求输入指令描述（可选）
+                const commandDescription = await Dialog.prompt('请输入指令描述（可选）:', '', '添加到指令集');
+                
+                if (commandDescription === null) {
+                    // 用户取消了输入
+                    return;
+                }
+
                 // 检查指令名称是否已存在
                 const existingCommands = CommandStorage.getAll();
                 const nameExists = existingCommands.some(cmd => cmd.name === commandName.trim());
@@ -3837,7 +4838,7 @@
                 }
 
                 // 添加指令到存储
-                const success = CommandStorage.add(commandName.trim(), code.trim());
+                const success = CommandStorage.add(commandName.trim(), code.trim(), commandDescription ? commandDescription.trim() : '');
 
                 if (success) {
                     Toast.show(`指令 "${commandName.trim()}" 已添加到指令集`);
@@ -3914,12 +4915,22 @@
             }
         }
 
+        // 更新最小化容器位置的方法
+        function updateMinimizedContainerPosition() {
+            if (minimizedContainer && minimizedWindows.size > 0) {
+                // 重新计算位置
+                createMinimizedContainer();
+            }
+        }
+
+        // 获取最小化容器信息的方法
         return {
             createWindow: createDebugWindow,
             closeWindow,
             minimizeWindow,
             restoreWindow,
-            applyTheme
+            applyTheme,
+            updateMinimizedContainerPosition
         };
     })();
 
@@ -3938,6 +4949,10 @@
         render();
         Dialog.initialize();
         Dialog.applyTheme();
+        
+        // 将DebugWindowManager和Toast暴露到全局，供相互调用
+        window.DebugWindow = DebugWindowManager;
+        window.Toast = Toast;
 
         // 初始：同步 toast 按钮状态（如果存在）
         const toastOn = store.get('toast.enabled', 0) === 1;
@@ -3946,7 +4961,12 @@
             toastBtn.textContent = toastOn ? '关闭弹窗' : '弹窗提示';
             toastBtn.style.borderStyle = toastOn ? 'inset' : 'outset';
         }
-        if (toastOn) Toast.show('提示', '你好');
+        if (toastOn) {
+            Toast.show('提示', '你好');
+        } else {
+            // 如果弹窗提示是关闭状态，确保关闭可能存在的弹窗
+            Toast.hide();
+        }
 
         // 初始：同步日志显示状态
         const loggerHidden = store.get('logger.hidden', 0) === 1;
@@ -3992,11 +5012,94 @@
             kgjBtn.style.borderStyle = gp.visible ? 'inset' : 'outset';
         }
 
+        // 数据迁移函数：将localStorage数据迁移到GM全局存储
+        function migrateLocalStorageToGM() {
+            try {
+                // 迁移标记，避免重复迁移
+                const migrated = store.get('data_migrated', false);
+                if (migrated) return;
+
+                console.log('开始迁移localStorage数据到GM全局存储...');
+
+                // 迁移本地指令集
+                const localCommands = localStorage.getItem('custom_commands');
+                if (localCommands && !store.get('custom_commands', null)) {
+                    try {
+                        const commands = JSON.parse(localCommands);
+                        store.set('custom_commands', commands);
+                        console.log('已迁移本地指令集:', commands.length, '条');
+                    } catch (e) {
+                        console.error('迁移本地指令集失败:', e);
+                    }
+                }
+
+                // 迁移定时任务
+                const scheduledTasks = localStorage.getItem('scheduled_tasks');
+                if (scheduledTasks && !store.get('scheduled_tasks', null)) {
+                    try {
+                        const tasks = JSON.parse(scheduledTasks);
+                        store.set('scheduled_tasks', tasks);
+                        console.log('已迁移定时任务:', tasks.length, '条');
+                    } catch (e) {
+                        console.error('迁移定时任务失败:', e);
+                    }
+                }
+
+                // 迁移远程指令缓存
+                const remoteCommands = localStorage.getItem('remote_commands_cache');
+                if (remoteCommands && !store.get('remote_commands_cache', null)) {
+                    try {
+                        const commands = JSON.parse(remoteCommands);
+                        store.set('remote_commands_cache', commands);
+                        console.log('已迁移远程指令缓存:', commands.length, '条');
+                    } catch (e) {
+                        console.error('迁移远程指令缓存失败:', e);
+                    }
+                }
+
+                // 迁移远程指令同步时间
+                const lastSyncTime = localStorage.getItem('remote_commands_last_sync');
+                if (lastSyncTime && !store.get('remote_commands_last_sync', null)) {
+                    try {
+                        const time = parseInt(lastSyncTime);
+                        store.set('remote_commands_last_sync', time);
+                        console.log('已迁移远程指令同步时间:', new Date(time).toLocaleString());
+                    } catch (e) {
+                        console.error('迁移远程指令同步时间失败:', e);
+                    }
+                }
+
+                // 标记迁移完成
+                store.set('data_migrated', true);
+                console.log('数据迁移完成！');
+
+            } catch (error) {
+                console.error('数据迁移过程中发生错误:', error);
+            }
+        }
+
         // 启动调度器并加载定时任务
         Scheduler.start();
 
         // 创建全局调度器实例供管理界面使用
         window.scheduler = Scheduler;
+
+        // 数据迁移：将localStorage数据迁移到GM全局存储
+        migrateLocalStorageToGM();
+
+        // 页面加载时自动同步远程指令集
+        try {
+            const remoteUrl = store.get('remote_command_url', '');
+            const remoteEnabled = store.get('remote_commands_enabled', 0) === 1;
+            if (remoteEnabled && remoteUrl) {
+                console.log('页面加载时自动同步远程指令集:', remoteUrl);
+                syncRemoteCommands(false).catch(error => {
+                    console.error('自动同步远程指令集失败:', error);
+                });
+            }
+        } catch (error) {
+            console.error('检查远程指令集配置失败:', error);
+        }
 
         const now = new Date().toLocaleString();
         console.log(`上次网页刷新时间：${now}`);
