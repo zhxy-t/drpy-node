@@ -1893,7 +1893,7 @@ async function commonDetailListParse(moduleObject, method, injectVars, args) {
                         let tabName = tab_ext ? $pdfh(html, tab_ext) : tab_name;
 
                         let new_vod_list = [];
-                        if (typeof this.pdfl2 === 'function') { // pdfl函数有问题
+                        if (typeof this.pdfl === 'function') {
                             new_vod_list = this.pdfl(html, p1, list_text, list_url, this.MY_URL);
                             if (list_url_prefix) {
                                 new_vod_list = new_vod_list.map(it => it.split('$')[0] + '$' + list_url_prefix + it.split('$').slice(1).join('$'));
