@@ -59,7 +59,8 @@ initializeGlobalDollar();
 const {Ali, Baidu, Baidu2, Cloud, Pan, Quark, UC, Yun} = PanS;
 const {
     sleep, sleepSync, getNowTime, computeHash, deepCopy,
-    urljoin, urljoin2, joinUrl, keysToLowerCase, naturalSort, $js
+    urljoin, urljoin2, joinUrl, keysToLowerCase, naturalSort, $js,
+    createBasicAuthHeaders
 } = utils;
 // 缓存已初始化的模块和文件 hash 值
 const moduleCache = new Map();
@@ -156,6 +157,7 @@ export async function getSandbox(env = {}) {
         joinUrl,
         naturalSort,
         $js,
+        createBasicAuthHeaders,
         $,
         pupWebview,
         getProxyUrl,

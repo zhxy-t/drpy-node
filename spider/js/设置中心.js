@@ -1082,17 +1082,21 @@ var rule = {
             log('[百度扫码] 图片上传接口 imageUploadUrl:', imageUploadUrl);
             // log('[百度扫码] qrCode:', qrCode);
             try {
+                const basicHeader = createBasicAuthHeaders();
                 const baiduQrcode = (await axios({
                     url: httpUrl,
                     method: "POST",
                     data: {
                         url: imageUploadUrl,
                         method: "POST",
+                        headers: {
+                            ...basicHeader
+                        },
                         data: {imageId: 'baiduQrcode', base64Data: qrCode}
                     },
                 })).data.data;
                 log('[百度扫码] baiduQrcode:', baiduQrcode);
-                qrcodeUrl = requestHost + baiduQrcode.data.imageUrl;
+                qrcodeUrl = requestHost + baiduQrcode.data.imageUrl + `?t=${requestId}`;
                 log('[百度扫码] ds代理 qrcodeUrl:', qrcodeUrl);
             } catch (e) {
                 log('[百度扫码] error:', e.message);
@@ -1113,9 +1117,11 @@ var rule = {
                     msg: '请使用百度APP扫码登录获取',
                     width: 500,
                     button: 1,
-                    timeout: 20,
-                    qrcode: qrcodeUrl,
-                    isQrcode: 1, // 告诉壳子我已经是二维码了，你不要再去生成了(图片链接或者base64文本)！！！
+                    timeout: 30,
+                    imageUrl: qrcodeUrl,
+                    imageHeight: 400,
+                    // qrcode: qrcodeUrl,
+                    // isQrcode: 1, // 告诉壳子我已经是二维码了，你不要再去生成了(图片链接或者base64文本)！！！
                     qrcodeSize: '400',
                     initAction: 'baiduScanCheck',
                     initValue: requestId,

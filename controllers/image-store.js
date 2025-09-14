@@ -1,8 +1,10 @@
 import {imageManager} from '../utils/imageManager.js'
+import {validateBasicAuth} from '../utils/api_validate.js'
 
 // Fastify插件导出
 export default (fastify, options, done) => {
     fastify.post('/image/upload', {
+        preHandler: validateBasicAuth,
         schema: {
             body: {
                 type: 'object',
@@ -119,6 +121,7 @@ export default (fastify, options, done) => {
 
     // 删除图片 - DELETE /image/:imageId
     fastify.delete('/image/:imageId', {
+        preHandler: validateBasicAuth,
         schema: {
             params: {
                 type: 'object',
@@ -172,6 +175,7 @@ export default (fastify, options, done) => {
 
     // 清理过期图片 - POST /image/cleanup
     fastify.post('/image/cleanup', {
+        preHandler: validateBasicAuth,
         schema: {
             body: {
                 type: 'object',
@@ -204,6 +208,7 @@ export default (fastify, options, done) => {
 
     // 更新图片 - PUT /image/:imageId
     fastify.put('/image/:imageId', {
+        preHandler: validateBasicAuth,
         schema: {
             params: {
                 type: 'object',

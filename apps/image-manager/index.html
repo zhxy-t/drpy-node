@@ -383,6 +383,53 @@
             }
         }
         
+        // 获取图片信息
+        async function getImageInfo() {
+            const imageId = document.getElementById('getImageId').value.trim();
+            
+            if (!imageId) {
+                showResult('getResult', '请输入图片ID', 'error');
+                return;
+            }
+            
+            try {
+                showLoading('getResult');
+                
+                // 通过图片列表API获取特定图片信息
+                const response = await fetch('/image/list');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const targetImage = result.data.images.find(img => img.imageId === imageId);
+                    
+                    if (targetImage) {
+                        showResult('getResult', 
+                            `图片信息：\n` +
+                            `ID: ${targetImage.imageId}\n` +
+                            `大小: ${(targetImage.size / 1024).toFixed(2)} KB\n` +
+                            `MIME类型: ${targetImage.mimeType}\n` +
+                            `上传时间: ${new Date(targetImage.timestamp).toLocaleString()}\n` +
+                            `访问URL: ${targetImage.imageUrl}`, 
+                            'success'
+                        );
+                        
+                        // 显示图片预览
+                        document.getElementById('getPreview').innerHTML = 
+                            `<img src="${targetImage.imageUrl}" alt="图片: ${imageId}">`;
+                    } else {
+                        showResult('getResult', `未找到图片ID为 "${imageId}" 的图片`, 'error');
+                        document.getElementById('getPreview').innerHTML = '';
+                    }
+                } else {
+                    showResult('getResult', `获取图片信息失败: ${result.message}`, 'error');
+                }
+                
+            } catch (error) {
+                showResult('getResult', `获取图片信息失败: ${error.message}`, 'error');
+                document.getElementById('getPreview').innerHTML = '';
+            }
+        }
+        
         // 获取图片列表
         async function getImageList() {
             try {
