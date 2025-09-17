@@ -146,17 +146,6 @@
     }
   },
   {
-    "key": "Py_AppV2¹",
-    "name": "AV2¹",
-    "type": 3,
-    "detail_type": "search",
-    "changeable": 0,
-    "api": "clan://sites/lib/AppV2¹.py",
-    "exts": {
-
-    }
-  },
-  {
     "key": "Py_ApptoV⁵",
     "name": "ATV⁵",
     "type": 3,
