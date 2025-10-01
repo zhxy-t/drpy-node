@@ -22,15 +22,21 @@ const MAX_TEXT_SIZE = process.env.MAX_TEXT_SIZE || 0.1 * 1024 * 1024; // 设置�
 const MAX_IMAGE_SIZE = process.env.MAX_IMAGE_SIZE || 0.5 * 1024 * 1024; // 设置最大图片大小为 500 KB
 // 定义options的目录
 const rootDir = __dirname;
+const jsDir = path.join(__dirname, 'spider/DS');
+const dr2Dir = path.join(__dirname, 'spider/DR');
+const pyDir = path.join(__dirname, 'spider/DY');
+const catDir = path.join(__dirname, 'spider/Cat');
+const pzDir = path.join(__dirname, 'pz');
+
 const docsDir = path.join(__dirname, 'docs');
 const jxDir = path.join(__dirname, 'jx');
 const publicDir = path.join(__dirname, 'public');
 const appsDir = path.join(__dirname, 'apps');
 const jsonDir = path.join(__dirname, 'json');
-const jsDir = path.join(__dirname, 'spider/js');
-const dr2Dir = path.join(__dirname, 'spider/js_dr2');
-const pyDir = path.join(__dirname, 'spider/py');
-const catDir = path.join(__dirname, 'spider/catvod');
+//const jsDir = path.join(__dirname, 'spider/js');
+//const dr2Dir = path.join(__dirname, 'spider/js_dr2');
+//const pyDir = path.join(__dirname, 'spider/py');
+//const catDir = path.join(__dirname, 'spider/catvod');
 const catLibDir = path.join(__dirname, 'spider/catLib');
 const xbpqDir = path.join(__dirname, 'spider/xbpq');
 const configDir = path.join(__dirname, 'config');
@@ -86,6 +92,17 @@ fastify.addHook('preHandler', (req, reply, done) => {
     }
 });
 
+fastify.register(import('@fastify/static'), {
+    root: pzDir,
+    prefix: '/pz/',
+    decorateReply: false,
+    setHeaders: (res, path) => {
+        console.log(`Serving file: ${path}`); // 添加调试日志
+        if (path.endsWith('.json')) {
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        }
+    }
+});
 // 自定义插件替换 querystring 解析行为.避免出现两个相同参数被解析成列表
 fastify.addHook('onRequest', async (req, reply) => {
     // 获取原始 URL 中的 query 部分
@@ -165,6 +182,7 @@ registerRoutes(fastify, {
     publicDir,
     appsDir,
     jsonDir,
+    pzDir,
     jsDir,
     dr2Dir,
     pyDir,
