@@ -59,9 +59,24 @@ var rule = {
         }
     },
     推荐: async function () {
-        let {input, pdfa, pdfh, pd} = this;
+        let {input, pdfa, pdfh, pd, publicUrl} = this;
+        let vod_pic = urljoin(publicUrl, './images/icon_common/网盘.png');
         let d = [];
-        return setResult(d)
+        log('rule.pans:', rule.pans);
+        if (!rule.pans || rule.pans.length < 1) {
+            d.push({
+                vod_id: 'only_params',
+                vod_pic: vod_pic,
+                vod_name: '这是个传参源哦',
+                vod_tag: 'action',
+            })
+        }
+        return d
+    },
+    action: async function (action, value) {
+        if (action === 'only_params') {
+            return '此源为传参源，你必须要给出系统允许的extend参数才能使用'
+        }
     },
     一级: async function (tid, pg, filter, extend) {
         let d = [];
