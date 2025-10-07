@@ -65,6 +65,9 @@ var rule = {
     },
     一级: async function (tid, pg, filter, extend) {
         let d = [];
+        if (Number(pg) > 1) {
+            return d
+        }
         const _id = tid.split('$')[0];
         const _tid = tid.split('$')[1] || '/';
         let pan = rule.pans.find(it => it.id === _id || it.baseURL === _id);
