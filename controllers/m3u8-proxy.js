@@ -127,9 +127,9 @@ export default (fastify, options, done) => {
             }
         });
 
-        // 如果没有 user-agent，设置默认值
+        // 如果没有 user-agent，设置默认值（Windows 11 Chrome）
         if (!defaultHeaders['user-agent']) {
-            defaultHeaders['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36';
+            defaultHeaders['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         }
 
         return defaultHeaders;
@@ -829,7 +829,8 @@ export default (fastify, options, done) => {
                             m3u8Content, 
                             targetUrl, 
                             proxyBaseUrl, 
-                            request.query.auth
+                            request.query.auth,
+                            request.query.headers
                         );
 
                         // 缓存处理后的内容
@@ -908,9 +909,15 @@ export default (fastify, options, done) => {
      * @param {string} baseUrl - 基础 URL
      * @param {string} proxyBaseUrl - 代理基础 URL
      * @param {string} authCode - 认证码
+     * @param {string} headersParam - 自定义请求头参数
      * @returns {string} 处理后的 M3U8 内容
      */
-    function processM3u8ContentUnified(content, baseUrl, proxyBaseUrl, authCode) {
+    function processM3u8ContentUnified(content, baseUrl, proxyBaseUrl, authCode, headersParam = null) {
+        console.log(`[m3u8ProxyController] Processing M3U8 content with headers param: ${headersParam ? 'YES' : 'NO'}`);
+        if (headersParam) {
+            console.log(`[m3u8ProxyController] Headers param value: ${headersParam}`);
+        }
+        
         const lines = content.split('\n');
         const processedLines = [];
 
@@ -942,7 +949,12 @@ export default (fastify, options, done) => {
             const encodedUrl = encodeURIComponent(targetUrl);
             
             // 生成统一代理链接
-            const proxyUrl = `${proxyBaseUrl}/m3u8-proxy/proxy?url=${encodedUrl}&auth=${authCode}`;
+            let proxyUrl = `${proxyBaseUrl}/m3u8-proxy/proxy?url=${encodedUrl}&auth=${authCode}`;
+            
+            // 如果有自定义请求头，添加到代理链接中
+            if (headersParam) {
+                proxyUrl += `&headers=${encodeURIComponent(headersParam)}`;
+            }
             
             processedLines.push(proxyUrl);
         }
