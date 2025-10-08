@@ -28,6 +28,7 @@
 
 // 网络请求工具 - 提供HTTP请求功能
 import {getFirstLetter} from "../utils/pinyin-tool.js";
+import {createFTPClient} from "../utils/ftp.js";
 
 globalThis.reqs = reqs;
 
@@ -69,6 +70,10 @@ globalThis.Baidu = Baidu;
 
 // 百度网盘接口2 - 百度网盘的另一个实现版本
 globalThis.Baidu2 = Baidu2;
+// webdav
+globalThis.createWebDAVClient = createWebDAVClient;
+// ftp
+globalThis.createFTPClient = createFTPClient;
 
 // AI服务接口 - 提供人工智能相关服务
 globalThis.AIS = AIS;
