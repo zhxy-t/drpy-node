@@ -22,6 +22,27 @@ export default (fastify, options, done) => {
     const cacheTimeout = 5 * 60 * 1000;
 
     /**
+     * 验证身份认证
+     * @param {Object} request - Fastify请求对象
+     * @param {Object} reply - Fastify响应对象
+     * @returns {boolean} 验证是否通过
+     */
+    function verifyAuth(request, reply) {
+        const requiredAuth = ENV.get('PROXY_AUTH', 'drpys');
+        const providedAuth = request.query.auth;
+        
+        if (!providedAuth || providedAuth !== requiredAuth) {
+            reply.status(401).send({
+                error: 'Unauthorized',
+                message: 'Missing or invalid auth parameter',
+                code: 401
+            });
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * 解码参数 - 支持 base64 解码
      * @param {string} param - 需要解码的参数
      * @param {boolean} isJson - 是否为 JSON 格式
@@ -187,6 +208,11 @@ export default (fastify, options, done) => {
         method: ['GET', 'HEAD'],
         url: '/file-proxy/proxy',
         handler: async (request, reply) => {
+            // 验证身份认证
+            if (!verifyAuth(request, reply)) {
+                return;
+            }
+
             const { url: urlParam, headers: headersParam } = request.query;
 
             console.log(`[fileProxyController] ${request.method} request for URL: ${urlParam}`);
@@ -284,6 +310,11 @@ export default (fastify, options, done) => {
      * GET /file-proxy/info - 获取远程文件信息（HEAD 请求）
      */
     fastify.get('/file-proxy/info', async (request, reply) => {
+        // 验证身份认证
+        if (!verifyAuth(request, reply)) {
+            return;
+        }
+
         const { url: urlParam, headers: headersParam } = request.query;
 
         console.log(`[fileProxyController] Info request for URL: ${urlParam}`);
@@ -352,12 +383,17 @@ export default (fastify, options, done) => {
      * DELETE /file-proxy/cache - 清理缓存
      */
     fastify.delete('/file-proxy/cache', async (request, reply) => {
+        // 验证身份认证
+        if (!verifyAuth(request, reply)) {
+            return;
+        }
+
         console.log(`[fileProxyController] Cache clear request`);
 
         try {
             // 非VERCEL环境可在设置中心控制此功能是否开启
             if (!process.env.VERCEL) {
-                if (ENV.get('allow_file_cache_clear') !== '1') {
+                if (!Number(process.env.allow_file_cache_clear)) {
                     return reply.status(403).send({ error: 'Cache clear is not allowed by owner' });
                 }
             }
@@ -401,16 +437,22 @@ export default (fastify, options, done) => {
                     'Base64 parameter decoding',
                     'Range request support',
                     'Custom headers support',
-                    'CORS support'
+                    'CORS support',
+                    'Authentication protection'
                 ],
                 endpoints: [
-                    'GET /file-proxy/health - Health check',
-                    'GET /file-proxy/proxy?url=<remote_url>&headers=<custom_headers> - Proxy remote file',
-                    'HEAD /file-proxy/proxy?url=<remote_url>&headers=<custom_headers> - Get remote file headers',
-                    'GET /file-proxy/info?url=<remote_url>&headers=<custom_headers> - Get remote file information',
-                    'DELETE /file-proxy/cache - Clear cache',
-                    'GET /file-proxy/status - Get service status'
-                ]
+                    'GET /file-proxy/health - Health check (no auth required)',
+                    'GET /file-proxy/proxy?url=<remote_url>&auth=<auth_code>&headers=<custom_headers> - Proxy remote file',
+                    'HEAD /file-proxy/proxy?url=<remote_url>&auth=<auth_code>&headers=<custom_headers> - Get remote file headers',
+                    'GET /file-proxy/info?url=<remote_url>&auth=<auth_code>&headers=<custom_headers> - Get remote file information',
+                    'DELETE /file-proxy/cache?auth=<auth_code> - Clear cache',
+                    'GET /file-proxy/status - Get service status (no auth required)'
+                ],
+                auth: {
+                    required: true,
+                    parameter: 'auth',
+                    description: 'Authentication code required for protected endpoints'
+                }
             });
         } catch (error) {
             console.error('[fileProxyController] Status request error:', error);

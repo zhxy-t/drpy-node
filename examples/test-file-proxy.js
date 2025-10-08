@@ -4,6 +4,7 @@ import http from 'http';
 const config = {
     proxyHost: 'localhost',
     proxyPort: 3001,
+    authCode: 'drpys', // 身份验证码
     testUrls: [
         'https://httpbin.org/json',
         'https://httpbin.org/headers',
@@ -45,7 +46,7 @@ async function testBasicProxy() {
         const options = {
             hostname: config.proxyHost,
             port: config.proxyPort,
-            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}`,
+            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}&auth=${config.authCode}`,
             method: 'GET'
         };
         
@@ -78,7 +79,7 @@ async function testBase64UrlProxy() {
         const options = {
             hostname: config.proxyHost,
             port: config.proxyPort,
-            path: `/file-proxy/proxy?url=${encodedUrl}`,
+            path: `/file-proxy/proxy?url=${encodedUrl}&auth=${config.authCode}`,
             method: 'GET'
         };
         
@@ -118,7 +119,7 @@ async function testCustomHeaders() {
         const options = {
             hostname: config.proxyHost,
             port: config.proxyPort,
-            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}&headers=${encodedHeaders}`,
+            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}&headers=${encodedHeaders}&auth=${config.authCode}`,
             method: 'GET'
         };
         
@@ -150,7 +151,7 @@ async function testHeadRequest() {
         const options = {
             hostname: config.proxyHost,
             port: config.proxyPort,
-            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}`,
+            path: `/file-proxy/proxy?url=${encodeURIComponent(testUrl)}&auth=${config.authCode}`,
             method: 'HEAD'
         };
         
