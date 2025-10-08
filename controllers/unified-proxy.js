@@ -5,10 +5,17 @@
  * @module unified-proxy-controller
  */
 
-import {ENV} from '../utils/env.js';
-import https from 'https';
 import http from 'http';
-import {URL} from 'url';
+import https from 'https';
+import {
+    decodeParam,
+    getDefaultHeaders,
+    getRemoteContent,
+    makeRemoteRequest,
+    PROXY_CONSTANTS,
+    setCorsHeaders,
+    verifyAuth
+} from '../utils/proxy-util.js';
 
 /**
  * 全能代理控制器插件
@@ -19,117 +26,6 @@ import {URL} from 'url';
 export default (fastify, options, done) => {
     // 请求缓存
     const requestCache = new Map();
-    // 缓存超时时间（5分钟）
-    const cacheTimeout = 5 * 60 * 1000;
-
-    /**
-     * 验证身份认证
-     * @param {Object} request - Fastify请求对象
-     * @param {Object} reply - Fastify响应对象
-     * @returns {boolean} 验证是否通过
-     */
-    function verifyAuth(request, reply) {
-        const requiredAuth = ENV.get('PROXY_AUTH', 'drpys');
-        const providedAuth = request.query.auth;
-        
-        if (!providedAuth || providedAuth !== requiredAuth) {
-            reply.status(401).send({
-                error: 'Unauthorized',
-                message: 'Missing or invalid auth parameter',
-                code: 401
-            });
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * 解码参数 - 支持 base64 解码
-     * @param {string} param - 需要解码的参数
-     * @param {boolean} isJson - 是否为 JSON 格式
-     * @returns {string|Object} 解码后的参数
-     */
-    function decodeParam(param, isJson = false) {
-        if (!param) return isJson ? {} : '';
-
-        let decoded = param;
-
-        try {
-            // 首先尝试 URL 解码
-            decoded = decodeURIComponent(param);
-        } catch (e) {
-            // URL 解码失败，使用原始参数
-            decoded = param;
-        }
-
-        // 对于 URL 参数，如果不是 http 开头，尝试 base64 解码
-        if (!isJson && !decoded.startsWith('http://') && !decoded.startsWith('https://')) {
-            try {
-                const base64Decoded = Buffer.from(decoded, 'base64').toString('utf8');
-                if (base64Decoded.startsWith('http://') || base64Decoded.startsWith('https://')) {
-                    decoded = base64Decoded;
-                }
-            } catch (e) {
-                // base64 解码失败，保持原值
-            }
-        }
-
-        // 对于 headers 参数，如果不是 JSON 格式，尝试 base64 解码
-        if (isJson && !decoded.startsWith('{') && !decoded.endsWith('}')) {
-            try {
-                const base64Decoded = Buffer.from(decoded, 'base64').toString('utf8');
-                if (base64Decoded.startsWith('{') && base64Decoded.endsWith('}')) {
-                    decoded = base64Decoded;
-                }
-            } catch (e) {
-                // base64 解码失败，保持原值
-            }
-        }
-
-        // 如果是 JSON 格式，尝试解析
-        if (isJson) {
-            try {
-                return JSON.parse(decoded);
-            } catch (e) {
-                console.warn('Failed to parse headers as JSON:', decoded);
-                return {};
-            }
-        }
-
-        return decoded;
-    }
-
-    /**
-     * 获取默认请求头
-     * @param {Object} request - Fastify 请求对象
-     * @returns {Object} 默认请求头
-     */
-    function getDefaultHeaders(request) {
-        const defaultHeaders = {};
-
-        // 复制一些重要的请求头
-        const headersToForward = [
-            'user-agent',
-            'accept',
-            'accept-language',
-            'accept-encoding',
-            'referer',
-            'origin'
-        ];
-
-        headersToForward.forEach(header => {
-            if (request.headers[header]) {
-                defaultHeaders[header] = request.headers[header];
-            }
-        });
-
-        // 如果没有 user-agent，设置默认值（Windows 11 Chrome）
-        if (!defaultHeaders['user-agent']) {
-            defaultHeaders['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-        }
-
-        return defaultHeaders;
-    }
 
     /**
      * 发起远程HEAD请求检测内容类型
@@ -200,7 +96,7 @@ export default (fastify, options, done) => {
             
             // M3U8相关扩展名
             if (urlLower.includes('.m3u8') || urlLower.includes('.ts')) {
-                console.log(`[unifiedProxyController] Detected M3U8 by extension: ${url}`);
+                // console.log(`[unifiedProxyController] Detected M3U8 by extension: ${url}`);
                 return 'm3u8';
             }
 
@@ -211,7 +107,7 @@ export default (fastify, options, done) => {
             ];
             
             if (m3u8Keywords.some(keyword => urlLower.includes(keyword))) {
-                console.log(`[unifiedProxyController] Detected M3U8 by keyword: ${url}`);
+                // console.log(`[unifiedProxyController] Detected M3U8 by keyword: ${url}`);
                 return 'm3u8';
             }
 
@@ -226,7 +122,7 @@ export default (fastify, options, done) => {
                 
                 const contentType = headResponse.headers['content-type'] || '';
                 
-                console.log(`[unifiedProxyController] HEAD response Content-Type: ${contentType} for URL: ${url}`);
+                // console.log(`[unifiedProxyController] HEAD response Content-Type: ${contentType} for URL: ${url}`);
                 
                 // M3U8相关的Content-Type
                 const m3u8ContentTypes = [
@@ -237,7 +133,7 @@ export default (fastify, options, done) => {
                 ];
                 
                 if (m3u8ContentTypes.some(type => contentType.toLowerCase().includes(type.toLowerCase()))) {
-                    console.log(`[unifiedProxyController] Detected M3U8 by Content-Type: ${contentType}`);
+                    // console.log(`[unifiedProxyController] Detected M3U8 by Content-Type: ${contentType}`);
                     return 'm3u8';
                 }
                 
@@ -246,7 +142,7 @@ export default (fastify, options, done) => {
                     contentType.includes('video/mp4') || 
                     contentType.includes('audio/') ||
                     contentType.includes('application/pdf')) {
-                    console.log(`[unifiedProxyController] Detected file by Content-Type: ${contentType}`);
+                    // console.log(`[unifiedProxyController] Detected file by Content-Type: ${contentType}`);
                     return 'file';
                 }
                 
@@ -255,7 +151,7 @@ export default (fastify, options, done) => {
             }
 
             // 4. 默认回退到文件代理
-            console.log(`[unifiedProxyController] Using default file proxy for: ${url}`);
+            // console.log(`[unifiedProxyController] Using default file proxy for: ${url}`);
             return 'file';
             
         } catch (error) {
@@ -264,146 +160,9 @@ export default (fastify, options, done) => {
         }
     }
 
-    /**
-     * 发起远程请求
-     * @param {string} url - 远程文件 URL
-     * @param {Object} headers - 请求头
-     * @param {string} method - 请求方法
-     * @param {string} range - Range 头
-     * @returns {Promise} 请求结果
-     */
-    function makeRemoteRequest(url, headers, method = 'GET', range = null) {
-        return new Promise((resolve, reject) => {
-            let isResolved = false;
-            
-            try {
-                const urlObj = new URL(url);
-                const isHttps = urlObj.protocol === 'https:';
-                const httpModule = isHttps ? https : http;
 
-                const requestHeaders = { ...headers };
-                if (range) {
-                    requestHeaders['range'] = range;
-                }
 
-                const options = {
-                    hostname: urlObj.hostname,
-                    port: urlObj.port || (isHttps ? 443 : 80),
-                    path: urlObj.pathname + urlObj.search,
-                    method: method,
-                    headers: requestHeaders,
-                    timeout: 30000 // 30秒超时
-                };
 
-                const req = httpModule.request(options, (res) => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    
-                    resolve({
-                        statusCode: res.statusCode,
-                        headers: res.headers,
-                        stream: res
-                    });
-                });
-
-                req.on('error', (error) => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    reject(new Error(`Request failed: ${error.message}`));
-                });
-
-                req.on('timeout', () => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    req.destroy();
-                    reject(new Error('Request timeout'));
-                });
-
-                req.setTimeout(30000, () => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    req.destroy();
-                    reject(new Error('Request timeout'));
-                });
-
-                req.end();
-            } catch (error) {
-                if (isResolved) return;
-                isResolved = true;
-                reject(new Error(`Invalid URL or request setup: ${error.message}`));
-            }
-        });
-    }
-
-    /**
-     * 获取远程文件内容（文本）
-     * @param {string} url - 远程文件 URL
-     * @param {Object} headers - 请求头
-     * @returns {Promise<string>} 文件内容
-     */
-    function getRemoteContent(url, headers) {
-        return new Promise(async (resolve, reject) => {
-            let isResolved = false;
-            let timeoutId;
-            
-            try {
-                // 设置总体超时
-                timeoutId = setTimeout(() => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    reject(new Error('Content fetch timeout'));
-                }, 15000); // 15秒总超时
-                
-                const response = await makeRemoteRequest(url, headers, 'GET');
-                
-                if (response.statusCode >= 400) {
-                    if (isResolved) return;
-                    isResolved = true;
-                    clearTimeout(timeoutId);
-                    reject(new Error(`Remote server error: ${response.statusCode}`));
-                    return;
-                }
-
-                let content = '';
-                let contentLength = 0;
-                const maxContentLength = 10 * 1024 * 1024; // 10MB 限制
-                
-                response.stream.on('data', chunk => {
-                    if (isResolved) return;
-                    
-                    contentLength += chunk.length;
-                    if (contentLength > maxContentLength) {
-                        isResolved = true;
-                        clearTimeout(timeoutId);
-                        reject(new Error('Content too large'));
-                        return;
-                    }
-                    
-                    content += chunk.toString('utf8');
-                });
-
-                response.stream.on('end', () => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    clearTimeout(timeoutId);
-                    resolve(content);
-                });
-
-                response.stream.on('error', (error) => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    clearTimeout(timeoutId);
-                    reject(error);
-                });
-
-            } catch (error) {
-                if (isResolved) return;
-                isResolved = true;
-                clearTimeout(timeoutId);
-                reject(error);
-            }
-        });
-    }
 
     /**
      * 解析 M3U8 文件内容，转换相对链接为代理链接
@@ -415,9 +174,9 @@ export default (fastify, options, done) => {
      * @returns {string} 处理后的 M3U8 内容
      */
     function processM3u8ContentUnified(content, baseUrl, proxyBaseUrl, authCode, headersParam) {
-        console.log(`[unifiedProxyController] Processing M3U8 content, headersParam present: ${!!headersParam}`);
+        // console.log(`[unifiedProxyController] Processing M3U8 content, headersParam present: ${!!headersParam}`);
         if (headersParam) {
-            console.log(`[unifiedProxyController] headersParam value: ${headersParam}`);
+            // console.log(`[unifiedProxyController] headersParam value: ${headersParam}`);
         }
 
         const lines = content.split('\n');
@@ -475,7 +234,7 @@ export default (fastify, options, done) => {
      */
     function getProxyBaseUrl(request) {
         const protocol = request.headers['x-forwarded-proto'] || 
-                        (request.connection.encrypted ? 'https' : 'http');
+                        (request.socket.encrypted ? 'https' : 'http');
         const host = request.headers['x-forwarded-host'] || 
                     request.headers.host || 
                     'localhost:3001';
@@ -490,7 +249,7 @@ export default (fastify, options, done) => {
      * @param {Object} requestHeaders - 请求头
      */
     async function handleFileProxy(request, reply, targetUrl, requestHeaders) {
-        console.log(`[unifiedProxyController] Handling as file proxy: ${targetUrl}`);
+        // console.log(`[unifiedProxyController] Handling as file proxy: ${targetUrl}`);
         
         try {
             // 处理 Range 请求
@@ -562,7 +321,7 @@ export default (fastify, options, done) => {
      * @param {string} headersParam - headers参数
      */
     async function handleM3u8Proxy(request, reply, targetUrl, requestHeaders, headersParam) {
-        console.log(`[unifiedProxyController] Handling as M3U8 proxy: ${targetUrl}`);
+        // console.log(`[unifiedProxyController] Handling as M3U8 proxy: ${targetUrl}`);
         
         try {
             // 判断是M3U8索引文件还是TS片段
@@ -570,7 +329,7 @@ export default (fastify, options, done) => {
             
             if (isM3u8File) {
                 // 处理M3U8索引文件
-                console.log(`[unifiedProxyController] Processing M3U8 playlist: ${targetUrl}`);
+                // console.log(`[unifiedProxyController] Processing M3U8 playlist: ${targetUrl}`);
                 
                 // 获取 M3U8 文件内容
                 const m3u8Content = await getRemoteContent(targetUrl, requestHeaders);
@@ -589,15 +348,14 @@ export default (fastify, options, done) => {
 
                 // 设置响应头
                 reply.header('Content-Type', 'application/vnd.apple.mpegurl');
-                reply.header('Access-Control-Allow-Origin', '*');
-                reply.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+                setCorsHeaders(reply);
                 reply.header('Cache-Control', 'no-cache');
 
                 return reply.send(processedContent);
                 
             } else {
                 // 处理TS片段文件，使用文件代理逻辑
-                console.log(`[unifiedProxyController] Processing TS segment: ${targetUrl}`);
+                // console.log(`[unifiedProxyController] Processing TS segment: ${targetUrl}`);
                 return await handleFileProxy(request, reply, targetUrl, requestHeaders);
             }
 
@@ -614,14 +372,17 @@ export default (fastify, options, done) => {
      * GET /unified-proxy/health - 检查全能代理服务状态
      */
     fastify.get('/unified-proxy/health', async (request, reply) => {
-        console.log(`[unifiedProxyController] Health check request`);
+        // console.log(`[unifiedProxyController] Health check request`);
 
+        setCorsHeaders(reply);
+        
         return reply.send({
             status: 'ok',
             service: 'Unified Smart Proxy',
             timestamp: new Date().toISOString(),
             cache: {
-                requests: requestCache.size
+                requests: requestCache.size,
+                timeout: PROXY_CONSTANTS.CACHE_TIMEOUT
             },
             features: [
                 'Smart URL type detection',
@@ -648,7 +409,7 @@ export default (fastify, options, done) => {
 
             const { url: urlParam, headers: headersParam, type: forceType } = request.query;
 
-            console.log(`[unifiedProxyController] ${request.method} request for URL: ${urlParam}`);
+            // console.log(`[unifiedProxyController] ${request.method} request for URL: ${urlParam}`);
 
             // 验证必需参数
             if (!urlParam) {
@@ -708,7 +469,7 @@ export default (fastify, options, done) => {
                     proxyType = await detectProxyType(targetUrl, requestHeaders);
                 }
 
-                console.log(`[unifiedProxyController] Using proxy type: ${proxyType} for URL: ${targetUrl}`);
+                // console.log(`[unifiedProxyController] Using proxy type: ${proxyType} for URL: ${targetUrl}`);
 
                 // 根据检测结果选择代理方式，并实现智能回退
                 if (proxyType === 'm3u8') {
@@ -755,17 +516,30 @@ export default (fastify, options, done) => {
      * GET /unified-proxy/status - 获取代理服务状态
      */
     fastify.get('/unified-proxy/status', async (request, reply) => {
-        console.log(`[unifiedProxyController] Status request`);
+        // console.log(`[unifiedProxyController] Status request`);
 
         try {
-            return reply.send({
-                service: 'Unified Smart Proxy Controller',
-                version: '1.0.0',
-                status: 'running',
-                cache: {
-                    requests: requestCache.size,
-                    timeout: cacheTimeout
-                },
+            setCorsHeaders(reply);
+            
+            const features = [
+                'Smart URL type detection',
+                'Automatic proxy routing',
+                'Base64 parameter decoding',
+                'Custom headers support',
+                'Force type override',
+                'CORS support',
+                'Authentication protection',
+                'Intelligent fallback'
+            ];
+            
+            const endpoints = [
+                'GET /unified-proxy/health - Health check (no auth required)',
+                'GET /unified-proxy/proxy?url=<target_url>&auth=<auth_code>&headers=<custom_headers>&type=<force_type> - Smart proxy',
+                'HEAD /unified-proxy/proxy?url=<target_url>&auth=<auth_code>&headers=<custom_headers>&type=<force_type> - Smart proxy headers',
+                'GET /unified-proxy/status - Get service status (no auth required)'
+            ];
+            
+            const additionalInfo = {
                 detection: {
                     methods: [
                         'URL extension analysis (.m3u8, .ts)',
@@ -775,31 +549,28 @@ export default (fastify, options, done) => {
                     ],
                     supportedTypes: ['m3u8', 'file']
                 },
-                features: [
-                    'Smart URL type detection',
-                    'Automatic proxy routing',
-                    'Base64 parameter decoding',
-                    'Custom headers support',
-                    'Force type override',
-                    'CORS support',
-                    'Authentication protection',
-                    'Intelligent fallback'
-                ],
-                endpoints: [
-                    'GET /unified-proxy/health - Health check (no auth required)',
-                    'GET /unified-proxy/proxy?url=<target_url>&auth=<auth_code>&headers=<custom_headers>&type=<force_type> - Smart proxy',
-                    'HEAD /unified-proxy/proxy?url=<target_url>&auth=<auth_code>&headers=<custom_headers>&type=<force_type> - Smart proxy headers',
-                    'GET /unified-proxy/status - Get service status (no auth required)'
-                ],
                 routing: {
                     'm3u8-proxy': 'M3U8 playlists and TS segments',
                     'file-proxy': 'General files, images, videos, documents'
+                }
+            };
+            
+            return reply.send({
+                service: 'Unified Smart Proxy Controller',
+                version: '1.0.0',
+                status: 'running',
+                cache: {
+                    requests: requestCache.size,
+                    timeout: PROXY_CONSTANTS.CACHE_TIMEOUT
                 },
+                features: features,
+                endpoints: endpoints,
                 auth: {
                     required: true,
                     parameter: 'auth',
                     description: 'Authentication code required for proxy endpoints'
-                }
+                },
+                ...additionalInfo
             });
         } catch (error) {
             console.error('[unifiedProxyController] Status request error:', error);
