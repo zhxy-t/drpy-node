@@ -42,6 +42,7 @@ import webdavProxyController from './webdav-proxy.js';
 import ftpProxyController from './ftp-proxy.js';
 // 文件代理控制器
 import fileProxyController from './file-proxy.js';
+import m3u8ProxyController from './m3u8-proxy.js';
 
 /**
  * 注册所有路由控制器
@@ -88,4 +89,5 @@ export const registerRoutes = (fastify, options) => {
     fastify.register(ftpProxyController, options);
     // 注册文件代理路由
     fastify.register(fileProxyController, options);
+    fastify.register(m3u8ProxyController, options);
 };
