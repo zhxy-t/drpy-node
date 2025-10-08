@@ -148,7 +148,7 @@ export class WebDAVClient {
             });
 
             // 添加调试信息
-            if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+            if (Number(process.env.WEBDAV_DEBUG)) {
                 console.log('WebDAV PROPFIND response for', remotePath, ':', response.data);
             }
 
@@ -429,7 +429,7 @@ export class WebDAVClient {
             }
 
             // 添加调试信息
-            if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+            if (Number(process.env.WEBDAV_DEBUG)) {
                 console.log('WebDAV COPY operation:');
                 console.log('  Source:', normalizedSource);
                 console.log('  Destination URL:', destinationUrl);
@@ -517,7 +517,7 @@ export class WebDAVClient {
         const basePath = baseUrl.pathname;
 
         // 添加调试信息
-        if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+        if (Number(process.env.WEBDAV_DEBUG)) {
             console.log('_normalizeResponsePath debug:');
             console.log('  Response path:', responsePath);
             console.log('  Base path:', basePath);
@@ -537,7 +537,7 @@ export class WebDAVClient {
                 normalizedPath = '';
             }
 
-            if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+            if (Number(process.env.WEBDAV_DEBUG)) {
                 console.log('  Normalized path:', normalizedPath);
             }
 
@@ -545,7 +545,7 @@ export class WebDAVClient {
         }
 
         // 如果不以基础路径开头，直接返回原路径
-        if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+        if (Number(process.env.WEBDAV_DEBUG)) {
             console.log('  No normalization needed, returning:', responsePath);
         }
 
@@ -571,7 +571,7 @@ export class WebDAVClient {
         const absoluteUrl = new URL(cleanPath, baseURL).href;
 
         // 添加调试信息
-        if (process.env.NODE_ENV === 'development' || process.env.WEBDAV_DEBUG) {
+        if (Number(process.env.WEBDAV_DEBUG)) {
             console.log('_getAbsoluteUrl debug:');
             console.log('  Input remotePath:', remotePath);
             console.log('  Normalized path:', normalizedPath);
