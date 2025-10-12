@@ -272,6 +272,31 @@
             padding: 40px;
         }
         
+        /* 当只有上传区域显示时的全局居中样式 */
+        .upload-section.upload-only {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 1000 !important;
+            background: var(--background-color) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            flex: none !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            box-sizing: border-box !important;
+        }
+        
+        /* 确保upload-only状态下的upload-area也居中 */
+        .upload-section.upload-only .upload-area {
+            margin: auto !important;
+        }
+        
         .upload-area {
             background: white;
             border: 2px dashed var(--primary-color);
@@ -1206,6 +1231,7 @@
                             <div class="storage-text" id="storageText">存储: 0MB / 100MB</div>
                         </div>
                         <button class="btn btn-small" id="storageManageBtn">管理书籍</button>
+                        <button class="btn btn-small" id="uploadNewBtn">上传新书</button>
                     </div>
                 </div>
                 
@@ -1349,14 +1375,29 @@
                 this.fontSizeDown = document.getElementById('fontSizeDown');
                 this.fontSizeDisplay = document.getElementById('fontSizeDisplay');
                 
+                // 设置初始状态：隐藏不应该在没有小说时显示的元素
+                this.setInitialState();
+                
                 // 存储管理相关元素
                 this.storageInfo = document.getElementById('storageInfo');
                 this.storageFill = document.getElementById('storageFill');
                 this.storageText = document.getElementById('storageText');
                 this.storageManageBtn = document.getElementById('storageManageBtn');
+                this.uploadNewBtn = document.getElementById('uploadNewBtn');
                 this.storagePanel = document.getElementById('storagePanel');
                 this.closePanelBtn = document.getElementById('closePanelBtn');
                 this.booksList = document.getElementById('booksList');
+            }
+            
+            setInitialState() {
+                // 在没有小说内容时，隐藏不应该显示的元素
+                this.sidebar.style.display = 'none';
+                this.readerContainer.style.display = 'none';
+                this.fixedNav.style.display = 'none';
+                
+                // 确保上传区域是显示的并添加全局居中样式
+                this.uploadSection.style.display = 'block';
+                this.uploadSection.classList.add('upload-only');
             }
             
             initEventListeners() {
@@ -1406,6 +1447,7 @@
                 
                 // 存储管理事件
                 this.storageManageBtn.addEventListener('click', () => this.showStoragePanel());
+                this.uploadNewBtn.addEventListener('click', () => this.returnToUpload());
                 this.closePanelBtn.addEventListener('click', () => this.hideStoragePanel());
                 
                 // 触摸手势和翻页功能
@@ -1465,7 +1507,9 @@
                     
                     // 显示阅读器
                     this.uploadSection.style.display = 'none';
+                    this.uploadSection.classList.remove('upload-only');
                     this.processing.style.display = 'none';
+                    this.readerContainer.style.display = 'block';
                     
                     // 显示固定导航条
                     this.fixedNav.style.display = 'flex';
@@ -1663,6 +1707,7 @@
             
             openSidebar() {
                 this.settings.sidebarOpen = true;
+                this.sidebar.style.display = 'block'; // 确保侧边栏可见
                 this.sidebar.classList.add('open');
                 this.overlay.classList.add('show');
                 if (window.innerWidth > 768) {
@@ -2166,6 +2211,28 @@
                 this.chapterList.style.display = 'block';
             }
             
+            // 返回上传界面
+            returnToUpload() {
+                // 清除当前书籍数据
+                this.currentBook = null;
+                this.currentChapter = 0;
+                this.chapters = [];
+                
+                // 重置界面到初始状态
+                this.setInitialState();
+                
+                // 清空内容
+                this.bookTitle.textContent = '小说标题';
+                this.bookStats.textContent = '共0章，约0千字';
+                this.chapterList.innerHTML = '';
+                this.readerContent.innerHTML = '';
+                this.contentTitle.textContent = '';
+                this.contentText.textContent = '';
+                
+                // 关闭侧边栏
+                this.closeSidebar();
+            }
+            
             // 渲染书籍列表
             renderBooksList() {
                 const books = this.getStoredBooks();
@@ -2236,9 +2303,14 @@
                 
                 // 显示阅读器
                 this.uploadSection.style.display = 'none';
+                this.uploadSection.classList.remove('upload-only');
+                this.readerContainer.style.display = 'block';
                 
                 // 显示固定导航条
                 this.fixedNav.style.display = 'flex';
+                
+                // 显示侧边栏
+                this.sidebar.style.display = 'block';
                 
                 // 隐藏存储面板
                 this.hideStoragePanel();
