@@ -3,7 +3,8 @@
  * 统一管理和注册所有控制器路由
  * 提供应用程序的所有API端点和功能模块
  */
-
+import formBody from '@fastify/formbody';
+import websocket from '@fastify/websocket';
 // 静态文件服务控制器
 import staticController from './static.js';
 // 文档服务控制器
@@ -44,6 +45,8 @@ import ftpProxyController from './ftp-proxy.js';
 import fileProxyController from './file-proxy.js';
 import m3u8ProxyController from './m3u8-proxy.js';
 import unifiedProxyController from './unified-proxy.js';
+// WebSocket控制器
+import websocketController from './websocket.js';
 
 /**
  * 注册所有路由控制器
@@ -52,6 +55,10 @@ import unifiedProxyController from './unified-proxy.js';
  * @param {Object} options - 路由配置选项
  */
 export const registerRoutes = (fastify, options) => {
+    // 注册插件以支持 application/x-www-form-urlencoded
+    fastify.register(formBody);
+    // 注册WebSocket插件
+    fastify.register(websocket);
     // 注册静态文件服务路由
     fastify.register(staticController, options);
     // 注册文档服务路由
@@ -93,4 +100,6 @@ export const registerRoutes = (fastify, options) => {
     fastify.register(m3u8ProxyController, options);
     // 注册统一代理路由
     fastify.register(unifiedProxyController, options);
+    // 注册WebSocket路由
+    fastify.register(websocketController, options);
 };

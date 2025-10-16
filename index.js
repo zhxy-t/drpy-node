@@ -3,7 +3,6 @@ import path from 'path';
 import os from 'os';
 import qs from 'qs';
 import {fileURLToPath} from 'url';
-import formBody from '@fastify/formbody';
 import {validateBasicAuth, validateJs, validatePwd, validatHtml} from "./utils/api_validate.js";
 import {startAllPlugins} from "./utils/pluginManager.js";
 // 注册自定义import钩子
@@ -37,9 +36,6 @@ const configDir = path.join(__dirname, 'config');
 
 const pluginProcs = startAllPlugins(__dirname);
 // console.log('pluginProcs:', pluginProcs);
-
-// 注册插件以支持 application/x-www-form-urlencoded
-fastify.register(formBody);
 
 // 添加钩子事件
 fastify.addHook('onReady', async () => {
