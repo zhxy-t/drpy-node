@@ -97,7 +97,7 @@ interceptConsole();
  */
 export default (fastify, options, done) => {
     // 注册WebSocket路由
-    fastify.register(async function (fastify) {
+    // fastify.register(async function (fastify) {
         /**
          * WebSocket连接路由
          * GET /ws - 建立WebSocket连接
@@ -187,7 +187,7 @@ export default (fastify, options, done) => {
                 clearInterval(heartbeatInterval);
             });
         });
-    });
+    // });
 
     /**
      * WebSocket状态查询接口
