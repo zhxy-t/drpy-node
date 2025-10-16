@@ -155,7 +155,11 @@ export default (fastify, options, done) => {
         socket.on('message', (message) => {
             try {
                 const data = JSON.parse(message.toString());
-                originalConsole.log(`Received from ${clientId}:`, data);
+                if (data && data.type === 'heartbeat') {
+                    originalConsole.debug(`Received from ${clientId}:`, data);
+                } else {
+                    originalConsole.log(`Received from ${clientId}:`, data);
+                }
 
                 // 回显消息
                 if (socket.readyState === socket.OPEN) {
