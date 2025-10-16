@@ -126,6 +126,7 @@ export default (fastify, options, done) => {
             // 构建请求相关的URL信息
             const protocol = request.headers['x-forwarded-proto'] || (request.socket.encrypted ? 'https' : 'http');
             const hostname = request.hostname;
+            const wsName = hostname.replace(`:${options.PORT}`, `:${options.WsPORT}`);
             const requestHost = `${protocol}://${hostname}`;
             const publicUrl = `${protocol}://${hostname}/public/`;
             const jsonUrl = `${protocol}://${hostname}/json/`;
@@ -135,7 +136,8 @@ export default (fastify, options, done) => {
             const webdavProxyUrl = `${protocol}://${hostname}/webdav/`;
             const ftpProxyUrl = `${protocol}://${hostname}/ftp/`;
             const hostUrl = `${hostname.split(':')[0]}`;
-            const fServer = fastify.server;
+            // const fServer = fastify.server;
+            const fServer = options.wsApp.server;
 
             /**
              * 构建环境对象
@@ -161,6 +163,7 @@ export default (fastify, options, done) => {
                     ftpProxyUrl,
                     hostUrl,
                     hostname,
+                    wsName,
                     fServer,
                     getProxyUrl,
                     ext: moduleExt
@@ -406,6 +409,7 @@ export default (fastify, options, done) => {
         // 构建请求相关的URL信息
         const protocol = request.headers['x-forwarded-proto'] || (request.socket.encrypted ? 'https' : 'http');
         const hostname = request.hostname;
+        const wsName = hostname.replace(`:${options.PORT}`, `:${options.WsPORT}`);
         const requestHost = `${protocol}://${hostname}`;
         const publicUrl = `${protocol}://${hostname}/public/`;
         const jsonUrl = `${protocol}://${hostname}/json/`;
@@ -415,7 +419,8 @@ export default (fastify, options, done) => {
         const webdavProxyUrl = `${protocol}://${hostname}/webdav/`;
         const ftpProxyUrl = `${protocol}://${hostname}/ftp/`;
         const hostUrl = `${hostname.split(':')[0]}`;
-        const fServer = fastify.server;
+        // const fServer = fastify.server;
+        const fServer = options.wsApp.server;
 
         /**
          * 构建代理环境对象
@@ -442,6 +447,7 @@ export default (fastify, options, done) => {
                 ftpProxyUrl,
                 hostUrl,
                 hostname,
+                wsName,
                 fServer,
                 getProxyUrl,
                 ext: moduleExt
@@ -549,6 +555,7 @@ export default (fastify, options, done) => {
         // 构建请求相关的URL信息
         const protocol = request.headers['x-forwarded-proto'] || (request.socket.encrypted ? 'https' : 'http');
         const hostname = request.hostname;
+        const wsName = hostname.replace(`:${options.PORT}`, `:${options.WsPORT}`);
         const requestHost = `${protocol}://${hostname}`;
         const publicUrl = `${protocol}://${hostname}/public/`;
         const jsonUrl = `${protocol}://${hostname}/json/`;
@@ -558,7 +565,8 @@ export default (fastify, options, done) => {
         const webdavProxyUrl = `${protocol}://${hostname}/webdav/`;
         const ftpProxyUrl = `${protocol}://${hostname}/ftp/`;
         const hostUrl = `${hostname.split(':')[0]}`;
-        const fServer = fastify.server;
+        // const fServer = fastify.server;
+        const fServer = options.wsApp.server;
 
         /**
          * 构建解析环境对象
@@ -585,6 +593,7 @@ export default (fastify, options, done) => {
                 ftpProxyUrl,
                 hostUrl,
                 hostname,
+                wsName,
                 getProxyUrl,
                 fServer,
                 ext: moduleExt

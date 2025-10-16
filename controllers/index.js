@@ -5,6 +5,8 @@
  */
 import formBody from '@fastify/formbody';
 import websocket from '@fastify/websocket';
+// WebSocket实时日志控制器-最早引入才能全局拦截console日志
+import websocketController from './websocket.js';
 // 静态文件服务控制器
 import staticController from './static.js';
 // 文档服务控制器
@@ -45,8 +47,8 @@ import ftpProxyController from './ftp-proxy.js';
 import fileProxyController from './file-proxy.js';
 import m3u8ProxyController from './m3u8-proxy.js';
 import unifiedProxyController from './unified-proxy.js';
-// WebSocket控制器
-import websocketController from './websocket.js';
+// WebSocket实时弹幕日志控制器
+import websocketServerController from "./websocketServer.js";
 
 /**
  * 注册所有路由控制器
@@ -59,6 +61,8 @@ export const registerRoutes = (fastify, options) => {
     fastify.register(formBody);
     // 注册WebSocket插件
     fastify.register(websocket);
+    // 注册WebSocket路由
+    fastify.register(websocketController, options);
     // 注册静态文件服务路由
     fastify.register(staticController, options);
     // 注册文档服务路由
@@ -100,6 +104,14 @@ export const registerRoutes = (fastify, options) => {
     fastify.register(m3u8ProxyController, options);
     // 注册统一代理路由
     fastify.register(unifiedProxyController, options);
-    // 注册WebSocket路由
-    fastify.register(websocketController, options);
 };
+
+/**
+ * 注册弹幕路由控制器
+ * 将弹幕功能模块的路由注册到Fastify实例中
+ * @param {Object} wsApp - Ws实时弹幕预览应用实例
+ * @param {Object} options - 路由配置选项
+ */
+export const registerWsRoutes = (wsApp, options) => {
+    wsApp.register(websocketServerController, options);
+}
