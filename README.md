@@ -4,7 +4,7 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/hjdhnx/drpy-node)
 
 nodejs作为服务端的drpy实现。全面升级异步写法  
-~~积极开发中，每日一更~~，当前进度 `99.999999%`  
+~~积极开发中，每日一更~~，当前进度 `100%`  
 ~~找工作中，随缘更新~~  
 上班当牛马，下班要带娃，阶段性佛系趁娃睡觉熬夜更新
 
@@ -57,6 +57,10 @@ nodejs作为服务端的drpy实现。全面升级异步写法
 * [drpy2打包项目](https://github.com/hjdhnx/drpy-webpack)
 
 ## 更新记录
+
+### 20251017
+
+更新至V1.3.14
 
 ### 20251015
 
