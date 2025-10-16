@@ -10,16 +10,24 @@ import {toBeijingTime} from "../utils/datetime-format.js";
 // WebSocket 客户端管理
 const wsClients = new Set();
 
+// 需要拦截的console方法列表
+const CONSOLE_METHODS = [
+    'log', 'error', 'warn', 'info', 'debug',
+    'time', 'timeEnd', 'timeLog',
+    'assert', 'clear', 'count', 'countReset',
+    'dir', 'dirxml', 'group', 'groupCollapsed', 'groupEnd',
+    'table', 'trace', 'profile', 'profileEnd'
+];
+
 // 原始 console 方法备份
-const originalConsole = {
-    log: console.log,
-    error: console.error,
-    warn: console.warn,
-    info: console.info,
-    debug: console.debug,
-    time: console.time,
-    timeEnd: console.timeEnd,
-};
+const originalConsole = {};
+
+// 动态备份所有console方法
+CONSOLE_METHODS.forEach(method => {
+    if (typeof console[method] === 'function') {
+        originalConsole[method] = console[method];
+    }
+});
 
 // 广播消息到所有 WebSocket 客户端
 function broadcastToClients(message) {
@@ -66,24 +74,22 @@ function interceptConsole() {
         };
     };
 
-    console.log = createInterceptor('log', originalConsole.log);
-    console.error = createInterceptor('error', originalConsole.error);
-    console.warn = createInterceptor('warn', originalConsole.warn);
-    console.info = createInterceptor('info', originalConsole.info);
-    console.debug = createInterceptor('debug', originalConsole.debug);
-    console.time = createInterceptor('time', originalConsole.time);
-    console.timeEnd = createInterceptor('timeEnd', originalConsole.timeEnd);
+    // 动态拦截所有console方法
+    CONSOLE_METHODS.forEach(method => {
+        if (originalConsole[method]) {
+            console[method] = createInterceptor(method, originalConsole[method]);
+        }
+    });
 }
 
 // 恢复原始 console
 function restoreConsole() {
-    console.log = originalConsole.log;
-    console.error = originalConsole.error;
-    console.warn = originalConsole.warn;
-    console.info = originalConsole.info;
-    console.debug = originalConsole.debug;
-    console.time = originalConsole.time;
-    console.timeEnd = originalConsole.timeEnd;
+    // 动态恢复所有console方法
+    CONSOLE_METHODS.forEach(method => {
+        if (originalConsole[method]) {
+            console[method] = originalConsole[method];
+        }
+    });
 }
 
 // 启动 console 拦截
@@ -96,98 +102,96 @@ interceptConsole();
  * @param {Function} done - 完成回调
  */
 export default (fastify, options, done) => {
-    // 注册WebSocket路由
-    // fastify.register(async function (fastify) {
-        /**
-         * WebSocket连接路由
-         * GET /ws - 建立WebSocket连接
-         */
-        fastify.get('/ws', {websocket: true}, (socket, req) => {
-            const clientId = Date.now() + Math.random();
-            originalConsole.log(`WebSocket client connected: ${clientId}`);
-            originalConsole.log('Socket type:', typeof socket);
-            originalConsole.log('Socket has send method:', typeof socket.send);
+    /**
+     * WebSocket连接路由
+     * GET /ws - 建立WebSocket连接
+     */
+    fastify.get('/ws', {websocket: true}, (socket, req) => {
+        const clientId = Date.now() + Math.random();
+        originalConsole.log(`WebSocket client connected: ${clientId}`);
+        originalConsole.log('Socket type:', typeof socket);
+        originalConsole.log('Socket has send method:', typeof socket.send);
 
-            // 添加到客户端集合
-            wsClients.add(socket);
+        // 添加到客户端集合
+        wsClients.add(socket);
 
-            // 设置连接属性
-            socket.clientId = clientId;
-            socket.isAlive = true;
-            socket.lastPing = Date.now();
+        // 设置连接属性
+        socket.clientId = clientId;
+        socket.isAlive = true;
+        socket.lastPing = Date.now();
 
-            // 发送欢迎消息 - 先检查send方法是否存在
-            if (typeof socket.send === 'function') {
-                socket.send(JSON.stringify({
-                    type: 'welcome',
-                    message: 'WebSocket connection established',
-                    clientId: clientId,
-                    timestamp: Date.now()
-                }));
-            } else {
-                originalConsole.error('Socket does not have send method');
+        // 发送欢迎消息 - 先检查send方法是否存在
+        if (typeof socket.send === 'function') {
+            socket.send(JSON.stringify({
+                type: 'welcome',
+                message: 'WebSocket connection established',
+                clientId: clientId,
+                timestamp: Date.now()
+            }));
+        } else {
+            originalConsole.error('Socket does not have send method');
+        }
+
+        // 设置心跳检测
+        const heartbeatInterval = setInterval(() => {
+            if (!socket.isAlive) {
+                originalConsole.log(`Client ${clientId} failed heartbeat, terminating`);
+                clearInterval(heartbeatInterval);
+                wsClients.delete(socket); // 修复内存泄露：从客户端集合中移除
+                socket.terminate();
+                return;
             }
 
-            // 设置心跳检测
-            const heartbeatInterval = setInterval(() => {
-                if (!socket.isAlive) {
-                    originalConsole.log(`Client ${clientId} failed heartbeat, terminating`);
-                    clearInterval(heartbeatInterval);
-                    socket.terminate();
-                    return;
-                }
+            socket.isAlive = false;
+            socket.ping();
+        }, 30000); // 30秒心跳检测
 
-                socket.isAlive = false;
-                socket.ping();
-            }, 30000); // 30秒心跳检测
-
-            // 处理pong响应
-            socket.on('pong', () => {
-                socket.isAlive = true;
-            });
-
-            // 处理消息
-            socket.on('message', (message) => {
-                try {
-                    const data = JSON.parse(message.toString());
-                    originalConsole.log(`Received from ${clientId}:`, data);
-
-                    // 回显消息
-                    if (socket.readyState === socket.OPEN) {
-                        socket.send(JSON.stringify({
-                            type: 'echo',
-                            originalMessage: data,
-                            timestamp: Date.now(),
-                            clientId: clientId
-                        }));
-                    }
-                } catch (error) {
-                    originalConsole.error('Error processing message:', error);
-                    if (socket.readyState === socket.OPEN) {
-                        socket.send(JSON.stringify({
-                            type: 'error',
-                            message: 'Invalid JSON format',
-                            timestamp: Date.now()
-                        }));
-                    }
-                }
-            });
-
-            // 处理连接关闭
-            socket.on('close', (code, reason) => {
-                originalConsole.log(`Client ${clientId} disconnected: ${code} ${reason}`);
-                wsClients.delete(socket);
-                clearInterval(heartbeatInterval);
-            });
-
-            // 处理错误
-            socket.on('error', (error) => {
-                originalConsole.error(`WebSocket error for client ${clientId}:`, error);
-                wsClients.delete(socket);
-                clearInterval(heartbeatInterval);
-            });
+        // 处理pong响应
+        socket.on('pong', () => {
+            socket.isAlive = true;
         });
-    // });
+
+        // 处理消息
+        socket.on('message', (message) => {
+            try {
+                const data = JSON.parse(message.toString());
+                originalConsole.log(`Received from ${clientId}:`, data);
+
+                // 回显消息
+                if (socket.readyState === socket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'echo',
+                        originalMessage: data,
+                        timestamp: Date.now(),
+                        clientId: clientId
+                    }));
+                }
+            } catch (error) {
+                originalConsole.error('Error processing message:', error);
+                if (socket.readyState === socket.OPEN) {
+                    socket.send(JSON.stringify({
+                        type: 'error',
+                        message: 'Invalid JSON format',
+                        timestamp: Date.now()
+                    }));
+                }
+            }
+        });
+
+        // 处理连接关闭
+        socket.on('close', (code, reason) => {
+            originalConsole.log(`Client ${clientId} disconnected: ${code} ${reason}`);
+            wsClients.delete(socket);
+            clearInterval(heartbeatInterval);
+        });
+
+        // 处理错误
+        socket.on('error', (error) => {
+            originalConsole.error(`WebSocket error for client ${clientId}:`, error);
+            wsClients.delete(socket);
+            clearInterval(heartbeatInterval);
+        });
+    });
 
     /**
      * WebSocket状态查询接口
