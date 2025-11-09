@@ -1,39 +1,25 @@
-/**
- * 移动云盘（139邮箱云盘）API工具模块
- * 
- * 该模块提供与移动云盘（139邮箱云盘）交互的功能，包括：
- * - 分享链接解析
- * - 文件列表获取
- * - 文件下载链接获取
- * - 数据加密解密
- * 
- * @author drpy
- * @version 1.0.0
- */
-
 import axios from "axios";
 import CryptoJS from "crypto-js";
 import {ENV} from "../env.js";
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-/**
- * 移动云盘驱动类
- * 
- * 提供移动云盘的完整API接口，支持分享链接解析、文件获取、下载等功能
- */
+// 获取当前模块的目录路径
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// 读取 tokenm.json 文件
+const configPath = path.join(__dirname, '../../pz/tokenm.json');
+
 class YunDrive {
-    /**
-     * 构造函数 - 初始化移动云盘驱动
-     * 
-     * 设置必要的配置参数，包括正则表达式、加密密钥、API基础URL等
-     */
     constructor() {
-        // 移动云盘分享链接的正则表达式
+        // 正则表达式匹配天翼云盘分享链接
         this.regex = /https:\/\/yun.139.com\/shareweb\/#\/w\/i\/([^&]+)/;
         // AES加密密钥
         this.x = CryptoJS.enc.Utf8.parse("PVGDwmcvfs1uV3d1");
         // API基础URL
         this.baseUrl = 'https://share-kd-njs.yun.139.com/yun-share/richlifeApp/devapp/IOutLink/';
-        // 默认请求头
+        // 请求头配置
         this.baseHeader = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
             'Accept': 'application/json, text/plain, */*',
@@ -43,145 +29,142 @@ class YunDrive {
         };
         // 分享链接ID
         this.linkID = '';
-        // 缓存对象，用于存储API响应结果
+        // 验证码
+        this.vCode = '';
+        // 缓存对象
         this.cache = {};
-        // 授权token
-        this.authorization = ''
+        // 授权信息
+        this.authorization = '';
+        // 配置文件
+        this.config = null;
+        
+        this.initConfig();
     }
 
-    /**
-     * 初始化移动云盘驱动
-     * 
-     * 从环境变量中获取cookie和账号信息，并解析authorization token
-     * 
-     * @async
-     * @returns {Promise<void>}
-     */
+    // 初始化授权信息
     async init() {
         if (this.cookie) {
-            console.log('移动cookie获取成功' + this.cookie)
             const cookie = this.cookie.split(';');
             if (this.authorization === '') {
-                // 从cookie中提取authorization token
                 cookie.forEach((item) => {
                     if (item.indexOf('authorization') !== -1) {
                         this.authorization = item.replace('authorization=', '');
-                        console.log('authorization获取成功:' + this.authorization)
                     }
                 })
             }
-        } else {
-            console.error("请先获取移动cookie")
-        }
-        if (this.account) {
-            console.log("移动账号获取成功")
         }
     }
 
-    /**
-     * 获取移动云盘cookie
-     * 
-     * @returns {string} 从环境变量中获取的cookie字符串
-     */
-    get cookie() {
-        return ENV.get('yun_cookie')
+    // 初始化配置文件
+    initConfig() {
+        try {
+            if (fs.existsSync(configPath)) {
+                const configData = fs.readFileSync(configPath, 'utf8');
+                this.config = JSON.parse(configData);
+            }
+        } catch (error) {
+            // 忽略配置文件读取错误
+        }
     }
 
-    /**
-     * 获取移动云盘账号
-     * 
-     * @returns {string} 从环境变量中获取的账号字符串
-     */
+    // 获取账号
     get account() {
-        return ENV.get('yun_account')
+        return this.config?.cloud_account || '';
     }
 
-    /**
-     * 数据加密方法
-     * 
-     * 使用AES-CBC模式对数据进行加密，支持字符串和对象类型
-     * 
-     * @param {string|object} data - 需要加密的数据
-     * @returns {string} Base64编码的加密结果
-     */
+    // 获取密码
+    get password() {
+        return this.config?.cloud_password || '';
+    }
+
+    // 获取cookie
+    get cookie() {
+        return this.config?.cloud_cookie || '';
+    }
+
+    // AES加密方法
     encrypt(data) {
-        // 生成随机初始化向量
         let t = CryptoJS.lib.WordArray.random(16), n = "";
         if ("string" == typeof data) {
-            // 字符串类型加密
             const o = CryptoJS.enc.Utf8.parse(data);
             n = CryptoJS.AES.encrypt(o, this.x, {iv: t, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7});
         } else if (typeof data === 'object' && data !== null) {
-            // 对象类型先转JSON再加密
             const a = JSON.stringify(data), s = CryptoJS.enc.Utf8.parse(a);
             n = CryptoJS.AES.encrypt(s, this.x, {iv: t, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7});
         }
-        // 返回IV和密文的Base64编码
         return CryptoJS.enc.Base64.stringify(t.concat(n.ciphertext));
     }
 
-    /**
-     * 数据解密方法
-     * 
-     * 解密使用AES-CBC模式加密的数据
-     * 
-     * @param {string} data - Base64编码的加密数据
-     * @returns {string} 解密后的原始数据
-     */
+    // AES解密方法
     decrypt(data) {
-        // 解析Base64数据
         const t = CryptoJS.enc.Base64.parse(data), n = t.clone(), i = n.words.splice(4);
-        // 分离IV和密文
         n.init(n.words), t.init(i);
         const o = CryptoJS.enc.Base64.stringify(t),
-            // 执行AES解密
             a = CryptoJS.AES.decrypt(o, this.x, {iv: n, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7}),
             s = a.toString(CryptoJS.enc.Utf8);
         return s.toString();
     }
 
-    /**
-     * 从分享URL中提取分享ID
-     * 
-     * 支持两种格式的移动云盘分享链接
-     * 
-     * @async
-     * @param {string} url - 移动云盘分享链接
-     * @returns {Promise<void>}
-     */
+    // 从URL中提取分享ID和验证码
     async getShareID(url) {
-        // 匹配两种格式的分享链接
-        const matches = this.regex.exec(url) || /https:\/\/caiyun.139.com\/m\/i\?([^&]+)/.exec(url);
-        if (matches && matches[1]) {
+        const cleanUrl = url.trim();
+        
+        // 提取linkID
+        const matches = cleanUrl.match(/([^\/?&]+)(?=\?|#|$)/); 
+        if (matches) {
             this.linkID = matches[1];
         }
+        
+        // 从URL中提取验证码
+        this.vCode = this.extractVCode(cleanUrl);
+        
+        return {
+            linkID: this.linkID,
+            vCode: this.vCode
+        };
     }
 
-    /**
-     * 获取分享信息
-     * 
-     * 通过API获取指定目录的分享信息，包含文件和文件夹列表
-     * 
-     * @async
-     * @param {string} pCaID - 父目录ID，'root'表示根目录
-     * @returns {Promise<object|null>} 分享信息对象，失败时返回null
-     */
-    async getShareInfo(pCaID) {
+    // 从URL中提取验证码
+    extractVCode(url) {
+        if (!url) return null;
+        
+        const patterns = [
+            /&nbsp;?([a-zA-Z0-9]{4,8})(?:&|$)/i,
+            /&nbsp;?pwd=([a-zA-Z0-9]{4,8})/i,
+            /[?&](?:pwd|password|pass|code)=([a-zA-Z0-9]{4,8})/i,
+            /[?&](?:提取码|密码|验证码)=([a-zA-Z0-9]{4,8})/i,
+            /#(?:pwd|password|code)=([a-zA-Z0-9]{4,8})/i,
+            /[?&#]([a-zA-Z0-9]{4,8})$/i,
+            /&nbsp;?([a-zA-Z0-9]{4})(?:\s|$)/i
+        ];
+        
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match?.[1]) return match[1];
+        }
+        
+        return null;
+    }
+
+    // 获取分享信息
+    async getShareInfo(pCaID, vCode = '') {
         if (!this.linkID) {
-            console.error('linkID is not set. Please call getShareID first.');
             return null;
         }
+        
+        const finalVCode = vCode || this.vCode;
+        const cacheKey = `${this.linkID}-${pCaID}-${finalVCode}`;
+        
         // 检查缓存
-        const cacheKey = `${this.linkID}-${pCaID}`;
         if (this.cache[cacheKey]) {
             return this.cache[cacheKey];
         }
-        // 构造请求数据
-        let data = JSON.stringify(this.encrypt(JSON.stringify({
+        
+        let requestData = {
             "getOutLinkInfoReq": {
                 "account": "",
                 "linkID": this.linkID,
-                "passwd": "",
+                "passwd": finalVCode || "",
                 "caSrt": 1,
                 "coSrt": 1,
                 "srtDr": 0,
@@ -190,170 +173,177 @@ class YunDrive {
                 "eNum": 200
             },
             "commonAccountInfo": {"account": "", "accountType": 1}
-        })));
-
+        };
+        
+        let data = JSON.stringify(this.encrypt(JSON.stringify(requestData)));
         try {
-            // 发送API请求
             const resp = await axios.post(this.baseUrl + 'getOutLinkInfoV6', data, {headers: this.baseHeader});
             if (resp.status !== 200) {
                 return null;
             }
-            // 解密响应数据
-            const json = JSON.parse(this.decrypt(resp.data)).data;
-            // 缓存结果
-            this.cache[cacheKey] = json;
-            return json;
+            const decryptedData = JSON.parse(this.decrypt(resp.data));
+            
+            // 兼容数字0和字符串"0"
+            const successCode = decryptedData.code == 0;
+            
+            if (successCode && decryptedData.data) {
+                // 成功，返回数据并缓存
+                const json = decryptedData.data;
+                this.cache[cacheKey] = json;
+                return json;
+            } else {
+                return null;
+            }
+            
         } catch (error) {
-            console.error('Error processing share info:', error);
             return null;
         }
     }
 
-    /**
-     * 获取分享数据
-     * 
-     * 解析分享链接或目录ID，获取完整的文件结构
-     * 
-     * @async
-     * @param {string} url - 分享链接或目录ID
-     * @returns {Promise<object>} 文件结构对象，按目录名分组
-     */
+    // 获取分享数据
     async getShareData(url) {
         if (!url) {
             return {};
         }
-        // 判断是URL还是目录ID
+        
         const isValidUrl = url.startsWith('http');
         let pCaID = isValidUrl ? 'root' : url;
+        
         if (isValidUrl) {
             await this.getShareID(url);
         }
+        
         let file = {};
-        // 获取文件信息
-        let fileInfo = await this.getShareFile(pCaID);
-        if (fileInfo && Array.isArray(fileInfo)) {
-            // 并发获取所有文件的下载链接
-            await Promise.all(fileInfo.map(async (item) => {
-                if (!(item.name in file)) {
-                    file[item.name] = [];
-                }
-                let filelist = await this.getShareUrl(item.path);
-                if (filelist && filelist.length > 0) {
-                    file[item.name].push(...filelist);
-                }
-            }));
+        
+        // 首先尝试带验证码的请求
+        let fileInfo = await this.getShareFile(pCaID, this.vCode);
+        
+        // 如果带验证码请求失败，尝试不带验证码
+        if ((!fileInfo || fileInfo.length === 0) && this.vCode) {
+            fileInfo = await this.getShareFile(pCaID, '');
         }
-        // 清理空的文件夹
+        
+        // 处理文件信息
+        if (fileInfo && Array.isArray(fileInfo) && fileInfo.length > 0) {
+            fileInfo.forEach(item => {
+                if (item.isFile) {
+                    // 文件直接添加到结果中
+                    if (!file[item.name]) {
+                        file[item.name] = [];
+                    }
+                    file[item.name].push({
+                        name: item.name,
+                        contentId: item.contentId,
+                        linkID: item.linkID,
+                        size: item.size,
+                        duration: item.duration,
+                        thumbnail: item.thumbnail,
+                        playUrl: item.playUrl
+                    });
+                }
+            });
+        }
+        
+        // 清理空项
         for (let key in file) {
             if (file[key].length === 0) {
                 delete file[key];
             }
         }
-        // 如果没有找到文件，尝试获取根目录文件
-        if (Object.keys(file).length === 0) {
-            file['root'] = await this.getShareFile(url);
-            if (file['root'] && Array.isArray(file['root'])) {
-                file['root'] = file['root'].filter(item => item && Object.keys(item).length > 0);
-            }
-        }
+        
         return file;
     }
 
-    /**
-     * 获取分享文件列表
-     * 
-     * 递归获取指定目录下的所有文件和子目录
-     * 
-     * @async
-     * @param {string} pCaID - 目录ID或分享链接
-     * @returns {Promise<Array|null>} 文件列表数组，失败时返回null
-     */
-    async getShareFile(pCaID) {
+    // 获取分享文件列表（支持文件夹递归）
+    async getShareFile(pCaID, vCode = '') {
         if (!pCaID) {
             return null;
         }
         try {
-            // 处理URL格式
             const isValidUrl = pCaID.startsWith('http');
             pCaID = isValidUrl ? 'root' : pCaID;
-            // 获取目录信息
-            const json = await this.getShareInfo(pCaID);
-            if (!json || !json.caLst) {
-                return null;
+            
+            const json = await this.getShareInfo(pCaID, vCode);
+            if (!json) {
+                return [];
             }
-            const caLst = json?.caLst;
-            const names = caLst.map(it => it.caName);
-            const rootPaths = caLst.map(it => it.path);
-            // 过滤不需要的目录
-            const filterRegex = /App|活动中心|免费|1T空间|免流/;
-            const videos = [];
-            if (caLst && caLst.length > 0) {
-                // 添加符合条件的目录
+            
+            const result = [];
+            
+            // 处理文件夹（递归）
+            if (json.caLst && json.caLst.length > 0) {
+                const caLst = json.caLst;
+                const names = caLst.map(it => it.caName);
+                const rootPaths = caLst.map(it => it.path);
+                const filterRegex = /App|活动中心|免费|1T空间|免流/;
+                
                 names.forEach((name, index) => {
                     if (!filterRegex.test(name)) {
-                        videos.push({name: name, path: rootPaths[index]});
+                        result.push({name: name, path: rootPaths[index], isFolder: true});
                     }
                 });
-                // 递归获取子目录内容
-                let result = await Promise.all(rootPaths.map(async (path) => this.getShareFile(path)));
-                result = result.filter(item => item !== undefined && item !== null);
-                return [...videos, ...result.flat()];
+                
+                // 递归获取子文件夹内容
+                let subResults = await Promise.all(rootPaths.map(async (path) => this.getShareFile(path, vCode)));
+                subResults = subResults.filter(item => item !== undefined && item !== null && item.length > 0);
+                result.push(...subResults.flat());
             }
+            
+            // 处理文件
+            if (json.coLst && json.coLst.length > 0) {
+                const filteredItems = json.coLst.filter(it => it && it.coType === 3);
+                filteredItems.forEach(it => {
+                    result.push({
+                        name: it.coName,
+                        path: it.path,
+                        isFile: true,
+                        contentId: it.path,
+                        linkID: this.linkID,
+                        size: it.coSize,
+                        duration: it.extInfo?.duration,
+                        thumbnail: it.thumbnailURL,
+                        playUrl: it.presentURL
+                    });
+                });
+            }
+            
+            return result;
+            
         } catch (error) {
-            console.error('Error processing share data:', error);
-            return null;
+            return [];
         }
     }
 
-    /**
-     * 获取分享文件的下载链接
-     * 
-     * 获取指定目录下所有视频文件的下载信息
-     * 
-     * @async
-     * @param {string} pCaID - 目录ID
-     * @returns {Promise<Array|null>} 文件下载信息数组，失败时返回null
-     */
-    async getShareUrl(pCaID) {
+    // 获取分享文件URL
+    async getShareUrl(pCaID, vCode = '') {
         try {
-            const json = await this.getShareInfo(pCaID);
-            if (!json || !('coLst' in json)) {
+            const json = await this.getShareInfo(pCaID, vCode);
+            if (!json) {
                 return null;
             }
+            
             const coLst = json.coLst;
-            if (coLst !== null) {
-                // 过滤出视频文件（coType === 3）
+            if (coLst !== null && coLst.length > 0) {
                 const filteredItems = coLst.filter(it => it && it.coType === 3);
                 return filteredItems.map(it => ({
                     name: it.coName,
                     contentId: it.path,
-                    linkID: this.linkID
+                    linkID: this.linkID,
+                    size: it.coSize,
+                    duration: it.extInfo?.duration,
+                    thumbnail: it.thumbnailURL,
+                    playUrl: it.presentURL
                 }));
-            } else if (json.caLst !== null) {
-                // 递归处理子目录
-                const rootPaths = json.caLst.map(it => it.path);
-                let result = await Promise.all(rootPaths.map(path => this.getShareUrl(path)));
-                result = result.filter(item => item && item.length > 0);
-                return result.flat();
             }
+            
+            return null;
         } catch (error) {
-            console.error('Error processing share URL:', error);
             return null;
         }
     }
 
-    /**
-     * 获取文件播放链接
-     * 
-     * 通过contentId和linkID获取文件的直接播放链接
-     * 
-     * @async
-     * @param {string} contentId - 文件内容ID
-     * @param {string} linkID - 分享链接ID
-     * @returns {Promise<string|undefined>} 播放链接，失败时返回undefined
-     */
+    // 获取播放地址（不需要验证码）
     async getSharePlay(contentId, linkID) {
-        // 构造请求数据
         let data = {
             "getContentInfoFromOutLinkReq": {
                 "contentId": contentId.split('/')[1],
@@ -365,7 +355,6 @@ class YunDrive {
                 "accountType": 1
             }
         };
-        // 发送API请求
         let resp = await axios.post(this.baseUrl + 'getContentInfoFromOutLink', data, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -380,20 +369,9 @@ class YunDrive {
         }
     }
 
-    /**
-     * 获取文件下载链接
-     * 
-     * 通过contentId和linkID获取文件的直接下载链接（需要登录）
-     * 
-     * @async
-     * @param {string} contentId - 文件内容ID
-     * @param {string} linkID - 分享链接ID
-     * @returns {Promise<string|undefined>} 下载链接，失败时返回undefined
-     */
+    // 获取下载地址
     async getDownload(contentId, linkID) {
-        // 初始化认证信息
         await this.init()
-        // 构造加密请求数据
         let data = this.encrypt(JSON.stringify({
             "dlFromOutLinkReqV3": {
                 "linkID": linkID,
@@ -407,7 +385,6 @@ class YunDrive {
                 "accountType": 1
             }
         }));
-        // 发送API请求（需要authorization）
         let resp = await axios.post(this.baseUrl + 'dlFromOutLinkV3', data, {
             headers: {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -423,13 +400,10 @@ class YunDrive {
             }
         })
         if (resp.status === 200) {
-            // 解密响应获取下载链接
             let json = JSON.parse(this.decrypt(resp.data))
             return json.data.redrUrl
         }
-
     }
 }
 
-// 导出移动云盘实例
 export const Yun = new YunDrive();
